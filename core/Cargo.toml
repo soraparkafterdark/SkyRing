@@ -1,0 +1,17 @@
+[package]
+name = "er_combat_core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Elden Ring player movement and combat (from Funny-Bones/ELDEN-RING-Combat-Rewrite) as a library a Skyrim SKSE plugin can drive."
+
+[lib]
+# cdylib: er_combat_core.dll for the SKSE bridge. rlib: for the tests.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+glam = "0.30"
+
+[profile.release]
+opt-level = 3
+panic = "abort"

@@ -1,0 +1,10 @@
+# Rust
+core/target/
+# Generated from your own copy of Elden Ring. Never commit it.
+core/src/sim/extracted.rs
+# C++ build
+plugin/build/
+plugin/dist/SKSE/Plugins/*.dll
+plugin/dist/SKSE/Plugins/*.pdb
+*.7z
+*.zip
