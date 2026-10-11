@@ -1,5 +1,6 @@
 #include "Bridge.h"
 
+#include "ActorAdapter.h"
 #include "Input.h"
 #include "Settings.h"
 
@@ -86,6 +87,25 @@ void Bridge::Tick(RE::PlayerCharacter* player, float delta)
         player->SetGraphVariableBool("bInIframe"sv, invincible);
     }
 
+    // Observation only until the normal Skyrim hit dispatch is proven. Do not
+    // confirm the core hit here: confirmation belongs in the same branch as a
+    // successfully submitted native damage event.
+    if (Settings::Get().coreHitDetection && out.hit_live != 0 && out.action_serial != lastContactSerial) {
+        const auto selection = ActorAdapter::SelectSweepTarget(player, out);
+        if (selection.found) {
+            lastContactSerial = out.action_serial;
+            logger::info(
+                "CONTACT_OBSERVED serial={} action={} target={:08X} sample={} clearance={:.3f} damage_mul={:.3f} stance_mul={:.3f}",
+                out.action_serial,
+                static_cast<std::uint32_t>(out.action_kind),
+                selection.stableId,
+                selection.contact.step,
+                selection.surfaceClearance,
+                out.damage_multiplier,
+                out.stance_multiplier);
+        }
+    }
+
     // Activate always goes through: the core says when it would cut an action
     // short, and Skyrim's own activation simply waits for the animation.
     input->activatePressed = false;
@@ -106,6 +126,7 @@ void Bridge::SetCombatMode(bool on)
         er_destroy(combat);
         combat = nullptr;
         lastSerial = 0;
+        lastContactSerial = 0;
         if (iframes) {
             iframes = false;
             if (auto* player = RE::PlayerCharacter::GetSingleton()) {

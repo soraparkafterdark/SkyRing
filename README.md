@@ -51,7 +51,8 @@ The engine-independent bridge geometry can also be checked natively on macOS:
 ```bash
 clang++ -std=c++2b -Wall -Wextra -Werror \
   -Icore/include -Iplugin/src \
-  plugin/src/CombatMath.cpp plugin/tests/CombatMathTests.cpp \
+  plugin/src/BridgePlan.cpp plugin/src/CombatMath.cpp \
+  plugin/tests/CombatMathTests.cpp \
   -o /tmp/skyring-combat-math-tests
 /tmp/skyring-combat-math-tests
 ```
@@ -101,9 +102,11 @@ acceptance assertion. The operational rules for coding agents are in
 - [x] Separate defensive poise and offensive stance meters
 - [x] Shared hit consequence contract for elements, statuses, modifiers, poise, and stance
 - [x] Deterministic weapon-sweep versus actor-capsule contact geometry
+- [x] Deterministic hostile-target selection and bounded movement requests
+- [x] Skyrim high-process actor adapter with contact-only runtime diagnostics
 - [x] SKSE bridge scaffold: combat mode, input, action → animation event, i-frames
 - [ ] First in-game build and test on 1.6.1170
 - [ ] Lock-on target from True Directional Movement
 - [ ] Gamepad bindings
-- [ ] Core hit detection against Skyrim actors (phase B)
+- [ ] Submit observed core contacts through Skyrim's normal hit path (phase B)
 - [ ] Elden Ring animations converted from your own game files (phase B)

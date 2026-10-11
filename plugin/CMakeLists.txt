@@ -17,6 +17,7 @@ add_commonlibsse_plugin(${PROJECT_NAME}
     AUTHOR "spitonyagrave-bot"
     SOURCES
         src/main.cpp
+        src/ActorAdapter.cpp
         src/Bridge.cpp
         src/BridgePlan.cpp
         src/CombatMath.cpp

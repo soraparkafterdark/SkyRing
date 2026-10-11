@@ -95,6 +95,23 @@ int main()
     tied[0].stableId = 0;
     assert(!SelectSweepTarget(orderedSwing, tied).found);
 
+    const auto scaledActor = ActorCapsule(
+        { 100.0f, 200.0f, 10.0f },
+        { -10.0f, -20.0f, 0.0f },
+        { 10.0f, 20.0f, 100.0f },
+        150.0f);
+    assert(Near(scaledActor.radius, 30.0f));
+    assert(Near(scaledActor.a.x, 100.0f));
+    assert(Near(scaledActor.a.y, 200.0f));
+    assert(Near(scaledActor.a.z, 40.0f));
+    assert(Near(scaledActor.b.z, 130.0f));
+    const auto invalidActor = ActorCapsule(
+        { 0, 0, 0 },
+        { 0, 0, 1 },
+        { 1, 1, 1 },
+        100.0f);
+    assert(invalidActor.radius < 0.0f);
+
     ErOutput desired{};
     desired.position = { 3.0f, 4.0f, 2.0f };
     desired.heading = 4.0f * 3.14159265358979323846f + 0.5f;

@@ -19,6 +19,24 @@ namespace
 
 namespace BridgePlan
 {
+    CombatMath::Capsule ActorCapsule(ErVec3 feet, ErVec3 modelMin, ErVec3 modelMax, float actualHeight)
+    {
+        if (!Finite(feet) || !Finite(modelMin) || !Finite(modelMax) || !std::isfinite(actualHeight) ||
+            actualHeight <= 0.0f) {
+            return CombatMath::UprightCapsule(feet, -1.0f, -1.0f);
+        }
+
+        const float modelHeight = modelMax.z - modelMin.z;
+        const float modelWidth = std::max(modelMax.x - modelMin.x, modelMax.y - modelMin.y);
+        if (!std::isfinite(modelHeight) || !std::isfinite(modelWidth) || modelHeight <= 0.0f || modelWidth < 0.0f) {
+            return CombatMath::UprightCapsule(feet, -1.0f, -1.0f);
+        }
+
+        const float scale = actualHeight / modelHeight;
+        const float radius = modelWidth * scale * 0.5f;
+        return CombatMath::UprightCapsule(feet, actualHeight, radius);
+    }
+
     TargetSelection SelectSweepTarget(const ErOutput& swing, std::span<const TargetCandidate> candidates)
     {
         TargetSelection result{};

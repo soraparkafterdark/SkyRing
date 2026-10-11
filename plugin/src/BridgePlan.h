@@ -31,6 +31,10 @@ namespace BridgePlan
     // closest surface approach, then lowest stable form ID.
     TargetSelection SelectSweepTarget(const ErOutput& swing, std::span<const TargetCandidate> candidates);
 
+    // Converts model-space bounds plus Skyrim's scaled actor height into the
+    // upright world-space approximation used by the sweep selector.
+    CombatMath::Capsule ActorCapsule(ErVec3 feet, ErVec3 modelMin, ErVec3 modelMax, float actualHeight);
+
     struct MovementLimits
     {
         float maxHorizontalDistance = 0.0f;
