@@ -3,7 +3,7 @@
 Numeric balance model for the Skyrim/Elden Ring integration design.
 
 Five experiments, each testing a specific numeric claim made in the design
-docs (Charter.md, Magic overhaul.md, Integration plan.md, ER legendary
+docs (docs/Charter.md, docs/Magic overhaul.md, docs/Integration plan.md, docs/ER legendary
 items.md) using the real Elden Ring numbers quoted there wherever they
 exist. Nothing here touches animation, extraction, or the actual mod repo
 (none of that exists on this machine) -- this is pure arithmetic, meant to
@@ -29,7 +29,7 @@ def header(title: str) -> None:
 # ---------------------------------------------------------------------------
 # Experiment 1 -- unit conversion sanity check
 #
-# Integration plan.md: "A Bethesda unit is exactly 9/16 of an inch -- 1.42875
+# docs/Integration plan.md: "A Bethesda unit is exactly 9/16 of an inch -- 1.42875
 # cm -- which is why a 128-unit Nord is exactly six feet." And: "Decide
 # early whether reach scales by absolute metres or by body height ...
 # conflating them will make rolls overshoot."
@@ -77,7 +77,7 @@ def experiment_1_unit_conversion() -> None:
 # Experiment 2 -- catalyst rescale: ratio rule vs naive 1:1 import
 #
 # Real Elden Ring Sorcery/Incant Scaling (max) values, from ER legendary
-# items.md. Magic overhaul.md: "Do not reuse Elden Ring's absolute Scaling
+# items.md. docs/Magic overhaul.md: "Do not reuse Elden Ring's absolute Scaling
 # values ... Take the ratios between catalysts ... and rebuild the absolute
 # magnitudes against Skyrim's health economy ... the failure mode if you
 # ignore it is a level-10 mage one-shotting dragons."
@@ -197,7 +197,7 @@ def experiment_2_catalyst_rescale() -> None:
 # ---------------------------------------------------------------------------
 # Experiment 3 -- the "wall at level 30" test
 #
-# Magic overhaul.md, "What I would build first": take three existing staves,
+# docs/Magic overhaul.md, "What I would build first": take three existing staves,
 # give them Base values in the right ratio, convert a dozen Destruction
 # spells to power ratios, and play a mage from level 1 to 30. If the wall at
 # level 30 is gone, the thesis is confirmed.
@@ -266,7 +266,7 @@ DESTRUCTION_SPELL_RATIOS = [
 
 
 def experiment_3_wall_at_level_30() -> None:
-    header('Experiment 3 -- the "wall at level 30" test (Magic overhaul.md)')
+    header('Experiment 3 -- the "wall at level 30" test (docs/Magic overhaul.md)')
 
     catalyst_top_max = STAVES["Lusat's Glintstone Staff"]  # 413, at 80 Int per the roster
     _, rescaled_catalysts = None, rescale(
@@ -324,7 +324,7 @@ def experiment_3_wall_at_level_30() -> None:
 # ---------------------------------------------------------------------------
 # Experiment 4 -- fixed combat-action pool vs Skyrim's growing maximum
 #
-# Integration plan.md: "Port the ratio naively and rolling becomes free by
+# docs/Integration plan.md: "Port the ratio naively and rolling becomes free by
 # mid-game ... The fix is to pick the denominator deliberately: express
 # costs and the action pool against a fixed combat reference. Stamina
 # investment should improve recovery/headroom, not continuously add rolls.
@@ -404,7 +404,7 @@ def experiment_4_stamina_ratio() -> None:
 # ---------------------------------------------------------------------------
 # Experiment 5 -- smithing stone tier sets the ceiling, not the skill
 #
-# Charter.md: "stone tier sets the ceiling and the skill cannot raise it --
+# docs/Charter.md: "stone tier sets the ceiling and the skill cannot raise it --
 # Smithing perks go back to governing what you can forge and work with, not
 # how far you can push a number."
 # ---------------------------------------------------------------------------
@@ -424,7 +424,7 @@ STONE_TIER_CEILING_MULTIPLIER = {
 
 
 def experiment_5_stone_tier_ceiling() -> None:
-    header("Experiment 5 -- smithing stone tier sets the ceiling, not skill (Charter.md)")
+    header("Experiment 5 -- smithing stone tier sets the ceiling, not skill (docs/Charter.md)")
 
     base_damage = 10.0
     print(f"Base weapon damage (pre-upgrade, pre-skill): {base_damage:.1f}")

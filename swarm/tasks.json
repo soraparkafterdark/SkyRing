@@ -36,11 +36,11 @@
     {
       "id": "ir-schema-and-fixtures", "title": "Finish the versioned engine-neutral combat IR", "phase": "foundation", "priority": 1,
       "depends_on": [], "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false}, "acceptance_ceiling": "local",
-      "allowed_paths": ["schemas/**", "fixtures/**", "tools/**", "verification/**", "architecture.md", "README.md"], "checks": ["local_contract", "tool_tests"],
+      "allowed_paths": ["schemas/**", "fixtures/**", "tools/**", "verification/**", "docs/architecture.md", "README.md"], "checks": ["local_contract", "tool_tests"],
       "subtasks": [
         {"id": "schema", "work": "Define versioned action, window, motion, sweep, provenance, and ranged-extension records without absolute Elden Ring damage.", "touches": ["schemas/**", "tools/combat_ir.py"], "done_when": "Malformed windows, units, provenance, and forbidden damage fields fail by name."},
         {"id": "fixtures", "work": "Add positive and negative golden fixtures for melee, dodge, charge, and projectile release records.", "touches": ["fixtures/**", "tools/tests/**"], "done_when": "Valid fixtures round-trip and each invalid fixture has one expected failure."},
-        {"id": "versions", "work": "Make unsupported IR versions fail and document explicit migrations.", "touches": ["tools/combat_ir.py", "architecture.md"], "done_when": "Generated owner data can never be silently reinterpreted."}
+        {"id": "versions", "work": "Make unsupported IR versions fail and document explicit migrations.", "touches": ["tools/combat_ir.py", "docs/architecture.md"], "done_when": "Generated owner data can never be silently reinterpreted."}
       ],
       "produces": ["Combat IR validator", "Golden fixture suite", "IR migration rule"],
       "done_when": "The IR validates engine-neutral facts and provenance while refusing source-game absolute damage."
@@ -178,7 +178,7 @@
     {
       "id": "dual-perspective-runtime", "title": "Synchronize first- and third-person combat presentation", "phase": "colossal-sword", "priority": 3,
       "depends_on": ["animation-pipeline", "collision-motion-runtime", "hit-stop-runtime-log"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": false}, "acceptance_ceiling": "runtime",
-      "allowed_paths": ["tools/**", "verification/**", "docs/**", "plugin/**", "README.md", "architecture.md"], "checks": ["local_contract", "tool_tests"],
+      "allowed_paths": ["tools/**", "verification/**", "docs/**", "plugin/**", "README.md"], "checks": ["local_contract", "tool_tests"],
       "subtasks": [
         {"id": "graphs", "work": "Drive or seek both graphs from the same action ID, serial, and frame; never restart on view change.", "touches": ["plugin/**", "tools/**"], "done_when": "Switching view reveals the same action phase."},
         {"id": "cameras", "work": "Integrate collision-aware third-person and stable-horizon first-person cameras.", "touches": ["plugin/**"], "done_when": "Roll, knockdown, attack, and hit-stop avoid clipping and unwanted horizon roll."},

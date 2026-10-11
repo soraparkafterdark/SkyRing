@@ -1,6 +1,6 @@
 # SkyRing architecture
 
-This document is the implementation contract. `Charter.md` owns product
+This document is the implementation contract. `docs/Charter.md` owns product
 decisions; this file turns those decisions into code boundaries and an order of
 work. If they disagree, the Charter wins and this file must change.
 

@@ -3,8 +3,8 @@
   "project": "SkyRing",
   "end_goal": "Elden Ring-style action commitment and combat geometry integrated into Skyrim SE/AE with interchangeable first- and third-person presentation, Skyrim retaining RPG authority, accepted in CrossOver on Apple Silicon.",
   "authority_order": [
-    "Charter.md",
-    "architecture.md",
+    "docs/Charter.md",
+    "docs/architecture.md",
     "AGENTS.md"
   ],
   "first_vertical_slice": "colossal_sword",

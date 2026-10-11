@@ -34,7 +34,7 @@ The combat logic is the engine-free simulation from
 | `core/include/er_combat.h` | The C header for that interface. Tests check that it matches the Rust structs byte for byte. |
 | `plugin/` | The SKSE plugin (C++, CommonLibSSE-NG). It hooks the player's update, reads input and plays the core's actions. |
 | `plugin/dist/` | What goes in the mod archive: `SKSE/Plugins/ERCombat.dll`, `er_combat_core.dll` and `ERCombat.ini`. |
-| `architecture.md` | The implementation contract, ownership boundaries, and build order. |
+| `docs/architecture.md` | The implementation contract, ownership boundaries, and build order. |
 | `docs/EXECUTION_PLAN.md` | The zero-to-hero phase graph, target code contracts, dump handoff, and swarm merge protocol. |
 
 ## Building (Windows)

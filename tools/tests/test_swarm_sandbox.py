@@ -54,9 +54,9 @@ class SwarmSandboxTests(unittest.TestCase):
             swarm_sandbox.validate_manifest(manifest)
 
     def test_scope_matching_is_path_normalized(self):
-        patterns = ["core/**", "architecture.md"]
+        patterns = ["core/**", "docs/architecture.md"]
         self.assertTrue(swarm_sandbox.path_allowed("core/src/ffi.rs", patterns))
-        self.assertTrue(swarm_sandbox.path_allowed("./architecture.md", patterns))
+        self.assertTrue(swarm_sandbox.path_allowed("./docs/architecture.md", patterns))
         self.assertTrue(swarm_sandbox.path_allowed("core\\src\\ffi.rs", patterns))
         self.assertFalse(swarm_sandbox.path_allowed("plugin/src/Bridge.cpp", patterns))
 

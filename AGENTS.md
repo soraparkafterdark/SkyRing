@@ -1,7 +1,7 @@
 # SkyRing agent contract
 
 This file is the short operational contract for automated coding harnesses.
-Read `Charter.md` and `architecture.md` before changing gameplay. If documents
+Read `docs/Charter.md` and `docs/architecture.md` before changing gameplay. If documents
 disagree, the Charter wins, then the architecture. Do not infer completion
 from a successful native build.
 

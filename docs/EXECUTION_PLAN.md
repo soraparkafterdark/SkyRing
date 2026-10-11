@@ -1,6 +1,7 @@
 # SkyRing zero-to-hero execution plan
 
-This is the operational expansion of `Charter.md` and `architecture.md`.
+This is the operational expansion of `docs/Charter.md` and
+`docs/architecture.md`.
 Those documents remain authoritative. The machine-readable form of this plan
 is `swarm/tasks.json`; generated swarm prompts must come from that manifest,
 not from an agent's memory of this page.
@@ -13,7 +14,7 @@ checks, evidence requirement, and acceptance ceiling.
 
 1. Merge dependencies before preparing a dependent task.
 2. Give one bounded manifest task to one isolated worktree.
-3. Never let a worker change `Charter.md`, push, or commit owner-generated
+3. Never let a worker change `docs/Charter.md`, push, or commit owner-generated
    data, animations, audio, logs, credentials, or runtime evidence.
 4. Run the task's declared checks in its worktree, review the diff, then merge.
 5. Rebase or recreate sibling work after an ABI/schema change; do not resolve
