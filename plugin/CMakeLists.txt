@@ -18,6 +18,7 @@ add_commonlibsse_plugin(${PROJECT_NAME}
     SOURCES
         src/main.cpp
         src/Bridge.cpp
+        src/CombatMath.cpp
         src/Input.cpp
         src/Settings.cpp
 )

@@ -46,6 +46,16 @@ cmake --build --preset release # ERCombat.dll, both DLLs copied to dist\
 
 Then install `plugin/dist` as a mod in Vortex.
 
+The engine-independent bridge geometry can also be checked natively on macOS:
+
+```bash
+clang++ -std=c++2b -Wall -Wextra -Werror \
+  -Icore/include -Iplugin/src \
+  plugin/src/CombatMath.cpp plugin/tests/CombatMathTests.cpp \
+  -o /tmp/skyring-combat-math-tests
+/tmp/skyring-combat-math-tests
+```
+
 ## Elden Ring data
 
 The action table (timings, i-frames, cancel windows, root motion) is generated
@@ -67,6 +77,7 @@ Please keep generated data out of forks and uploads, as upstream asks.
 - [x] Delivery-agnostic status buildup and buff/debuff stacking kernel
 - [x] Separate defensive poise and offensive stance meters
 - [x] Shared hit consequence contract for elements, statuses, modifiers, poise, and stance
+- [x] Deterministic weapon-sweep versus actor-capsule contact geometry
 - [x] SKSE bridge scaffold: combat mode, input, action → animation event, i-frames
 - [ ] First in-game build and test on 1.6.1170
 - [ ] Lock-on target from True Directional Movement
