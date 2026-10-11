@@ -1,0 +1,62 @@
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-contract:
+    name: Local contract (macOS)
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set isolated repository identity
+        run: |
+          git config --local user.name soraparkafterdark
+          git config --local user.email sorapark@proton.me
+      - name: Verify host-testable contract
+        run: python3 tools/verify.py --profile local
+
+  windows-plugin:
+    name: Windows SKSE plugin (synthetic data)
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build Rust core DLL
+        working-directory: core
+        run: cargo build --release
+      - name: Expose runner vcpkg to CMake preset
+        shell: pwsh
+        run: Add-Content -Path $env:GITHUB_ENV -Value "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT"
+      - name: Configure SKSE plugin
+        working-directory: plugin
+        run: cmake --preset release
+      - name: Build SKSE plugin
+        working-directory: plugin
+        run: cmake --build --preset release
+      - name: Upload non-release build for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: skyring-windows-synthetic-${{ github.sha }}
+          path: plugin/dist/SKSE/Plugins/
+          if-no-files-found: error
+          retention-days: 7

@@ -46,6 +46,10 @@ cmake --build --preset release # ERCombat.dll, both DLLs copied to dist\
 
 Then install `plugin/dist` as a mod in Vortex.
 
+Every push also runs the local contract on a macOS worker and compiles the
+actual CommonLib/SKSE DLL on Windows. That CI artifact uses the synthetic
+action table and is a compile check, not source-data or CrossOver proof.
+
 The engine-independent bridge geometry can also be checked natively on macOS:
 
 ```bash
@@ -104,6 +108,7 @@ acceptance assertion. The operational rules for coding agents are in
 - [x] Deterministic weapon-sweep versus actor-capsule contact geometry
 - [x] Deterministic hostile-target selection and bounded movement requests
 - [x] Skyrim high-process actor adapter with contact-only runtime diagnostics
+- [x] macOS contract verification and Windows SKSE compile CI
 - [x] SKSE bridge scaffold: combat mode, input, action → animation event, i-frames
 - [ ] First in-game build and test on 1.6.1170
 - [ ] Lock-on target from True Directional Movement
