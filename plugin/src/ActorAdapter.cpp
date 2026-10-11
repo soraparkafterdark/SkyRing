@@ -43,8 +43,8 @@ namespace ActorAdapter
             return {};
         }
 
-        processes->ForEachHighActor([&](RE::Actor* actor) {
-            candidates.push_back(ReadCandidate(player, actor));
+        processes->ForEachHighActor([&](RE::Actor& actor) {
+            candidates.push_back(ReadCandidate(player, &actor));
             return RE::BSContainer::ForEachResult::kContinue;
         });
         return BridgePlan::SelectSweepTarget(swing, candidates);

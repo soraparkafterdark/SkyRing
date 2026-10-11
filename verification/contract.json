@@ -59,6 +59,7 @@
   "balance_invariants": {
     "maximum_armament_multiplier": 1.15,
     "skyrim_owns_absolute_damage": true,
+    "native_confirmation_requires_matching_contact": true,
     "all_weapons_unconditionally_wieldable": true,
     "poise_and_stance_are_separate": true
   },

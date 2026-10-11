@@ -47,6 +47,13 @@ jobs:
       - name: Expose runner vcpkg to CMake preset
         shell: pwsh
         run: Add-Content -Path $env:GITHUB_ENV -Value "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT"
+      - name: Restore vcpkg dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            plugin/build/vcpkg_installed
+            C:\vcpkg\downloads
+          key: windows-vcpkg-${{ hashFiles('plugin/vcpkg.json', 'plugin/vcpkg-configuration.json') }}
       - name: Configure SKSE plugin
         working-directory: plugin
         run: cmake --preset release

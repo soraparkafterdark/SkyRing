@@ -47,6 +47,12 @@ The Rust core may say that a hit happened and describe its action multiplier,
 geometry, impact, stance pressure, elements, and status buildup. It must not
 send an Elden Ring-derived absolute health-damage number to Skyrim.
 
+A core sweep is an observation, not permission to damage an actor. The bridge
+may confirm that contact back to the core only after Skyrim reports a native
+melee hit for the same actor during the same live action window. Skyrim's hit
+path remains authoritative; stale, mismatched, projectile, and duplicate hit
+events are rejected.
+
 ## Runtime shape
 
 ```text

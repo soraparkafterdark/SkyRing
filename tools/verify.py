@@ -113,6 +113,8 @@ def check_contract(contract: dict[str, Any]) -> str:
         raise VerificationError("armament hard cap drifted from 1.15")
     if invariants.get("skyrim_owns_absolute_damage") is not True:
         raise VerificationError("Skyrim damage ownership invariant is missing")
+    if invariants.get("native_confirmation_requires_matching_contact") is not True:
+        raise VerificationError("native hit/contact reconciliation invariant is missing")
     if invariants.get("all_weapons_unconditionally_wieldable") is not True:
         raise VerificationError("unconditional weapon access invariant is missing")
     for name, profile in profiles.items():

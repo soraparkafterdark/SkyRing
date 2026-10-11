@@ -19,6 +19,20 @@ namespace
 
 namespace BridgePlan
 {
+    bool CanConfirmNativeHit(
+        bool hitLive,
+        std::uint32_t currentActionSerial,
+        std::uint32_t observedActionSerial,
+        std::uint32_t observedTargetId,
+        std::uint32_t lastConfirmedActionSerial,
+        std::uint32_t nativeActionSerial,
+        std::uint32_t nativeTargetId)
+    {
+        return hitLive && observedActionSerial != 0 && observedTargetId != 0 &&
+               currentActionSerial == observedActionSerial && nativeActionSerial == observedActionSerial &&
+               nativeTargetId == observedTargetId && lastConfirmedActionSerial != observedActionSerial;
+    }
+
     CombatMath::Capsule ActorCapsule(ErVec3 feet, ErVec3 modelMin, ErVec3 modelMax, float actualHeight)
     {
         if (!Finite(feet) || !Finite(modelMin) || !Finite(modelMax) || !std::isfinite(actualHeight) ||

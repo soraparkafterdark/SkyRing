@@ -95,6 +95,13 @@ int main()
     tied[0].stableId = 0;
     assert(!SelectSweepTarget(orderedSwing, tied).found);
 
+    assert(CanConfirmNativeHit(true, 12, 12, 0x1234, 11, 12, 0x1234));
+    assert(!CanConfirmNativeHit(false, 12, 12, 0x1234, 11, 12, 0x1234));  // closed hit window
+    assert(!CanConfirmNativeHit(true, 13, 12, 0x1234, 11, 12, 0x1234));  // stale action
+    assert(!CanConfirmNativeHit(true, 12, 12, 0x1234, 11, 12, 0x5678));  // wrong target
+    assert(!CanConfirmNativeHit(true, 12, 12, 0x1234, 12, 12, 0x1234));  // duplicate
+    assert(!CanConfirmNativeHit(true, 0, 0, 0, 0, 0, 0));
+
     const auto scaledActor = ActorCapsule(
         { 100.0f, 200.0f, 10.0f },
         { -10.0f, -20.0f, 0.0f },

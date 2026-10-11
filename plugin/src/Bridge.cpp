@@ -13,6 +13,14 @@ namespace
 {
     ErVec3 ToEr(const RE::NiPoint3& p) { return { p.x, p.y, p.z }; }
 
+    std::uint64_t PackContact(std::uint32_t serial, std::uint32_t targetId)
+    {
+        return static_cast<std::uint64_t>(serial) << 32 | targetId;
+    }
+
+    std::uint32_t ContactSerial(std::uint64_t contact) { return static_cast<std::uint32_t>(contact >> 32); }
+    std::uint32_t ContactTarget(std::uint64_t contact) { return static_cast<std::uint32_t>(contact); }
+
     constexpr std::array kDirSuffix{ "Forward"sv, "Back"sv, "Left"sv, "Right"sv };
 
     bool Directional(ErAction kind)
@@ -26,6 +34,34 @@ namespace
         return !ui || ui->GameIsPaused() || ui->IsApplicationMenuOpen() || ui->IsModalMenuOpen() ||
                ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME);
     }
+
+    class NativeHitSink final : public RE::BSTEventSink<RE::TESHitEvent>
+    {
+    public:
+        static NativeHitSink* GetSingleton()
+        {
+            static NativeHitSink sink;
+            return &sink;
+        }
+
+        RE::BSEventNotifyControl ProcessEvent(
+            const RE::TESHitEvent* event,
+            RE::BSTEventSource<RE::TESHitEvent>*) override
+        {
+            if (!event || !event->cause || !event->target || event->projectile != 0 || !event->cause->IsPlayerRef()) {
+                return RE::BSEventNotifyControl::kContinue;
+            }
+
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            auto* weapon = player ? player->GetEquippedObject(false) : nullptr;
+            if (!weapon || event->source != weapon->GetFormID()) {
+                return RE::BSEventNotifyControl::kContinue;
+            }
+
+            Bridge::QueueNativeHit(event->target->GetFormID());
+            return RE::BSEventNotifyControl::kContinue;
+        }
+    };
 }
 
 void Bridge::Install()
@@ -33,6 +69,26 @@ void Bridge::Install()
     REL::Relocation<std::uintptr_t> vtbl{ RE::VTABLE_PlayerCharacter[0] };
     _Update = vtbl.write_vfunc(0xAD, Update);
     logger::info("Hooked PlayerCharacter::Update");
+}
+
+void Bridge::RegisterEvents()
+{
+    if (auto* events = RE::ScriptEventSourceHolder::GetSingleton()) {
+        events->AddEventSink(NativeHitSink::GetSingleton());
+        logger::info("Listening for Skyrim-native melee hits");
+    } else {
+        logger::error("Could not register Skyrim-native hit listener");
+    }
+}
+
+void Bridge::QueueNativeHit(std::uint32_t targetId)
+{
+    // TESHitEvent is post-damage. Snapshot only a target that the core has
+    // already observed for this action; Tick performs the core mutation.
+    const auto contact = observedContact.load(std::memory_order_acquire);
+    if (contact != 0 && ContactTarget(contact) == targetId) {
+        pendingNativeHit.store(contact, std::memory_order_release);
+    }
 }
 
 void Bridge::Update(RE::PlayerCharacter* a_this, float a_delta)
@@ -76,6 +132,9 @@ void Bridge::Tick(RE::PlayerCharacter* player, float delta)
 
     if (out.action_serial != lastSerial) {
         lastSerial = out.action_serial;
+        observedContact.store(0, std::memory_order_release);
+        pendingNativeHit.store(0, std::memory_order_release);
+        lastContactTarget = 0;
         PlayAction(player, out);
     }
 
@@ -94,6 +153,10 @@ void Bridge::Tick(RE::PlayerCharacter* player, float delta)
         const auto selection = ActorAdapter::SelectSweepTarget(player, out);
         if (selection.found) {
             lastContactSerial = out.action_serial;
+            lastContactTarget = selection.stableId;
+            observedContact.store(
+                PackContact(lastContactSerial, lastContactTarget),
+                std::memory_order_release);
             logger::info(
                 "CONTACT_OBSERVED serial={} action={} target={:08X} sample={} clearance={:.3f} damage_mul={:.3f} stance_mul={:.3f}",
                 out.action_serial,
@@ -104,6 +167,23 @@ void Bridge::Tick(RE::PlayerCharacter* player, float delta)
                 out.damage_multiplier,
                 out.stance_multiplier);
         }
+    }
+
+    const auto nativeHit = pendingNativeHit.exchange(0, std::memory_order_acq_rel);
+    if (nativeHit != 0 && BridgePlan::CanConfirmNativeHit(
+                              out.hit_live != 0,
+                              out.action_serial,
+                              lastContactSerial,
+                              lastContactTarget,
+                              lastConfirmedSerial,
+                              ContactSerial(nativeHit),
+                              ContactTarget(nativeHit))) {
+        lastConfirmedSerial = lastContactSerial;
+        er_confirm_hit(combat);
+        logger::info(
+            "CONTACT_CONFIRMED_NATIVE serial={} target={:08X}",
+            lastConfirmedSerial,
+            lastContactTarget);
     }
 
     // Activate always goes through: the core says when it would cut an action
@@ -127,6 +207,10 @@ void Bridge::SetCombatMode(bool on)
         combat = nullptr;
         lastSerial = 0;
         lastContactSerial = 0;
+        lastContactTarget = 0;
+        lastConfirmedSerial = 0;
+        observedContact.store(0, std::memory_order_release);
+        pendingNativeHit.store(0, std::memory_order_release);
         if (iframes) {
             iframes = false;
             if (auto* player = RE::PlayerCharacter::GetSingleton()) {

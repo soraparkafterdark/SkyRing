@@ -22,6 +22,7 @@ namespace
     {
         if (message->type == SKSE::MessagingInterface::kDataLoaded) {
             Input::Get()->Register();
+            Bridge::RegisterEvents();
             logger::info("Listening to input");
         }
     }

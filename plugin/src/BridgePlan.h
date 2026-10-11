@@ -31,6 +31,17 @@ namespace BridgePlan
     // closest surface approach, then lowest stable form ID.
     TargetSelection SelectSweepTarget(const ErOutput& swing, std::span<const TargetCandidate> candidates);
 
+    // A post-damage Skyrim event confirms the core contact only when both
+    // refer to the same still-current action and target, exactly once.
+    bool CanConfirmNativeHit(
+        bool hitLive,
+        std::uint32_t currentActionSerial,
+        std::uint32_t observedActionSerial,
+        std::uint32_t observedTargetId,
+        std::uint32_t lastConfirmedActionSerial,
+        std::uint32_t nativeActionSerial,
+        std::uint32_t nativeTargetId);
+
     // Converts model-space bounds plus Skyrim's scaled actor height into the
     // upright world-space approximation used by the sweep selector.
     CombatMath::Capsule ActorCapsule(ErVec3 feet, ErVec3 modelMin, ErVec3 modelMax, float actualHeight);

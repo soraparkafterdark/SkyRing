@@ -14,6 +14,8 @@ class Bridge
 {
 public:
     static void Install();
+    static void RegisterEvents();
+    static void QueueNativeHit(std::uint32_t targetId);
 
 private:
     static void Update(RE::PlayerCharacter* a_this, float a_delta);
@@ -28,5 +30,9 @@ private:
     static inline bool combatMode = false;
     static inline std::uint32_t lastSerial = 0;
     static inline std::uint32_t lastContactSerial = 0;
+    static inline std::uint32_t lastContactTarget = 0;
+    static inline std::uint32_t lastConfirmedSerial = 0;
+    static inline std::atomic<std::uint64_t> observedContact = 0;
+    static inline std::atomic<std::uint64_t> pendingNativeHit = 0;
     static inline bool iframes = false;
 };

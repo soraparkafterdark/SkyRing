@@ -108,6 +108,7 @@ acceptance assertion. The operational rules for coding agents are in
 - [x] Deterministic weapon-sweep versus actor-capsule contact geometry
 - [x] Deterministic hostile-target selection and bounded movement requests
 - [x] Skyrim high-process actor adapter with contact-only runtime diagnostics
+- [x] Core sweep/native Skyrim melee-hit reconciliation (diagnostic opt-in)
 - [x] macOS contract verification and Windows SKSE compile CI
 - [x] SKSE bridge scaffold: combat mode, input, action → animation event, i-frames
 - [ ] First in-game build and test on 1.6.1170
