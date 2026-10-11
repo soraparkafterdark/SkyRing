@@ -79,6 +79,48 @@ class CombatIRTests(unittest.TestCase):
         self.assertTrue(len(errors) > 0, f"Expected error for hit window after duration, got: {errors}")
         self.assertTrue(any('hit_windows_s' in e and 'duration_s' in e for e in errors))
 
+    def test_owner_null_data_fingerprint_rejected(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["provenance"]["source"] = "owner"
+        doc["provenance"]["data_fingerprint"] = None
+        errors = combat_ir.validate(doc)
+        self.assertTrue(
+            any("data_fingerprint" in e for e in errors),
+            f"Expected error mentioning data_fingerprint, got: {errors}",
+        )
+
+    def test_owner_empty_data_fingerprint_rejected(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["provenance"]["source"] = "owner"
+        doc["provenance"]["data_fingerprint"] = ""
+        errors = combat_ir.validate(doc)
+        self.assertTrue(
+            any("data_fingerprint" in e for e in errors),
+            f"Expected error mentioning data_fingerprint, got: {errors}",
+        )
+
+    def test_owner_valid_data_fingerprint_accepted(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["provenance"]["source"] = "owner"
+        doc["provenance"]["data_fingerprint"] = "a1b2c3d4e5f6"
+        errors = combat_ir.validate(doc)
+        self.assertEqual(
+            [e for e in errors if "data_fingerprint" in e],
+            [],
+            f"Expected no data_fingerprint errors for valid owner doc, got: {errors}",
+        )
+
+    def test_synthetic_null_data_fingerprint_valid(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["provenance"]["source"] = "synthetic"
+        doc["provenance"]["data_fingerprint"] = None
+        errors = combat_ir.validate(doc)
+        self.assertEqual(
+            [e for e in errors if "data_fingerprint" in e],
+            [],
+            f"Expected no data_fingerprint errors for synthetic with null fingerprint, got: {errors}",
+        )
+
     def test_cli_valid(self) -> None:
         import subprocess
         result = subprocess.run(

@@ -44,10 +44,13 @@ def validate(doc: Dict[str, Any]) -> List[str]:
         if not isinstance(generator, str) or not generator:
             errors.append('provenance.generator must be a non-empty string')
         data_fingerprint = provenance.get("data_fingerprint")
-        if source == "owner" and data_fingerprint is not None:
-            if not isinstance(data_fingerprint, str):
-                errors.append('provenance.data_fingerprint must be a string when source is "owner"')
-        # Note: data_fingerprint can be null (None) for synthetic, or a string for owner.
+        if source == "owner":
+            if not isinstance(data_fingerprint, str) or len(data_fingerprint) == 0:
+                errors.append(
+                    'provenance.data_fingerprint must be a non-null, non-empty string when source is "owner"'
+                )
+        # Note: data_fingerprint can be null (None) for synthetic, or a non-empty
+        # string for owner (enforced above).
 
     # units
     units = doc.get("units")
