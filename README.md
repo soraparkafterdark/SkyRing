@@ -63,16 +63,18 @@ from **your own copy of Elden Ring** and is never committed. Without it, the
 core builds against a stand-in (`core/src/sim/extracted_stub.rs`) so everything
 compiles and the tests run. To use the real data:
 
-1. Follow upstream's README Setup (unpack with UXM and WitchyBND, then run
-   `python tools/setup.py`).
-2. Copy its generated `src/sim/extracted.rs` to `core/src/sim/extracted.rs`
-   and rebuild. `build.rs` notices it and switches over automatically.
+1. On Windows, run `py -3 tools\owner_data.py dump`; it drives the current
+   Nuxe/WitchyBND workflow and the pinned upstream generators.
+2. Move the resulting private ZIP to the Mac and run
+   `python3 tools/owner_data.py import-bundle <zip>`. The importer installs
+   `extracted.rs`; `build.rs` switches over automatically.
 
 Please keep generated data out of forks and uploads, as upstream asks.
 
 The Windows machine doing the extraction does not need a discrete GPU. See
 [`docs/EXTRACTION.md`](docs/EXTRACTION.md) for the selective file list,
-workstation guidance, and the source-data verification handoff.
+workstation guidance, the `tools/owner_data.py` Windows dumper, and the
+hash-verified M2 Mac import handoff.
 
 ## Verification profiles
 

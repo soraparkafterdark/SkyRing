@@ -13,3 +13,7 @@ verification/out/
 verification/runtime-evidence.json
 __pycache__/
 *.pyc
+# Private owner-data dumper workspaces and transfer bundles.
+/skyring-owner-dump/
+/owner_data/
+*owner-data*.zip

@@ -244,6 +244,18 @@ def check_balance_model() -> str:
     return "Python balance envelope model passed"
 
 
+def check_owner_data_tool() -> str:
+    env = os.environ.copy()
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    output = run(
+        [sys.executable, "-m", "unittest", "discover", "-s", "tools/tests", "-v"],
+        env=env,
+    )
+    match = re.search(r"Ran (\d+) tests", output)
+    count = match.group(1) if match else "unknown"
+    return f"owner-data bundle safety and round-trip tests passed ({count} tests)"
+
+
 def check_balance_report(cargo: Path, env: dict[str, str]) -> str:
     output = run(
         [str(cargo), "run", "--quiet", "--bin", "balance_report"],
@@ -373,6 +385,7 @@ def main() -> int:
         )
 
     gate("balance_model", check_balance_model)
+    gate("owner_data_tool", check_owner_data_tool)
     gate(
         "balance_report",
         lambda: unavailable(cargo_error) if cargo_error else check_balance_report(cargo, cargo_env),

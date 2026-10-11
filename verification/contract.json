@@ -18,6 +18,7 @@
         "rust_tests",
         "c_abi",
         "bridge_geometry",
+        "owner_data_tool",
         "balance_model",
         "balance_report"
       ]
