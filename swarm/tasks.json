@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "project": "SkyRing",
   "integration_policy": {
     "agent_may_push": false,
@@ -13,160 +13,425 @@
     "rust_tests": ["cargo", "test", "--all-targets", "--manifest-path", "core/Cargo.toml"],
     "tool_tests": ["python3", "-m", "unittest", "discover", "-s", "tools/tests", "-v"]
   },
+  "phases": [
+    {"id": "foundation", "order": 0, "title": "Reproducible foundation", "gate": "Synthetic core, ABI, bridge math, manifests, and Windows builds are reproducible without source-fidelity claims."},
+    {"id": "owner-data", "order": 1, "title": "Owner-data extraction", "gate": "Owner inputs import safely, validate, and produce one stable source fingerprint."},
+    {"id": "colossal-sword", "order": 2, "title": "Dual-perspective colossal-sword slice", "gate": "All melee release assertions pass in first- and third-person under CrossOver."},
+    {"id": "balance", "order": 3, "title": "Action and armament balance", "gate": "Every action role and armament bonus stays inside tested envelopes and the 1.15x cap."},
+    {"id": "consequences", "order": 4, "title": "Elements, statuses, modifiers, affinities", "gate": "One delivery-neutral path resolves independent consequence channels through Skyrim authority."},
+    {"id": "posture", "order": 5, "title": "Poise, stance, ripostes", "gate": "Interruption, stance breaks, hyperarmour, and earned killmoves remain distinct."},
+    {"id": "bows", "order": 6, "title": "Bow and arrow delivery", "gate": "One longbow and physical, elemental, and buildup arrows pass under CrossOver."},
+    {"id": "gear-axis", "order": 7, "title": "Smithing stones and gear quality", "gate": "Weapons and catalysts share a bounded upgrade axis with no eligibility requirements."},
+    {"id": "catalysts", "order": 8, "title": "Catalysts", "gate": "Staff and ring catalysts dedicate hands correctly and create distinct builds through passives."},
+    {"id": "magic", "order": 9, "title": "Magic delivery", "gate": "The seven-case spell matrix composes proven action, projectile, effect, and catalyst systems."},
+    {"id": "enemy-symmetry", "order": 10, "title": "Enemy rule symmetry", "gate": "NPC attacks are committed, readable, and governed by shared stamina, posture, and effects."},
+    {"id": "breadth-compatibility", "order": 11, "title": "Breadth and compatibility", "gate": "Additional content, saves, and the target modlist pass a documented ownership matrix."},
+    {"id": "torrent", "order": 12, "title": "Torrent", "gate": "Summoning, traversal, health, double jump, immunity, and mounted attacks work under CrossOver."},
+    {"id": "encounters", "order": 13, "title": "Encounters and megafauna", "gate": "Priority encounters use proven rules; creature-heavy megafauna remains last."},
+    {"id": "ship", "order": 14, "title": "Combat-platform release", "gate": "The complete combat platform ships with exact-commit CrossOver evidence and no proprietary files."},
+    {"id": "megafauna", "order": 15, "title": "Megafauna, last", "gate": "Creature work begins only after the combat platform is already releasable."},
+    {"id": "complete", "order": 16, "title": "Zero-to-hero release", "gate": "The optional final creature work and the complete regression both pass without changing established combat."}
+  ],
   "tasks": [
     {
-      "id": "ir-schema-v1",
-      "title": "Version the engine-neutral combat IR",
-      "priority": 1,
-      "depends_on": [],
-      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "local",
-      "allowed_paths": ["schemas/**", "fixtures/**", "tools/**", "verification/**", "architecture.md", "README.md"],
-      "checks": ["local_contract", "tool_tests"],
-      "done_when": "A versioned schema rejects absolute Elden Ring damage, validates provenance and units, and has synthetic golden fixtures."
+      "id": "ir-schema-and-fixtures", "title": "Finish the versioned engine-neutral combat IR", "phase": "foundation", "priority": 1,
+      "depends_on": [], "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false}, "acceptance_ceiling": "local",
+      "allowed_paths": ["schemas/**", "fixtures/**", "tools/**", "verification/**", "architecture.md", "README.md"], "checks": ["local_contract", "tool_tests"],
+      "subtasks": [
+        {"id": "schema", "work": "Define versioned action, window, motion, sweep, provenance, and ranged-extension records without absolute Elden Ring damage.", "touches": ["schemas/**", "tools/combat_ir.py"], "done_when": "Malformed windows, units, provenance, and forbidden damage fields fail by name."},
+        {"id": "fixtures", "work": "Add positive and negative golden fixtures for melee, dodge, charge, and projectile release records.", "touches": ["fixtures/**", "tools/tests/**"], "done_when": "Valid fixtures round-trip and each invalid fixture has one expected failure."},
+        {"id": "versions", "work": "Make unsupported IR versions fail and document explicit migrations.", "touches": ["tools/combat_ir.py", "architecture.md"], "done_when": "Generated owner data can never be silently reinterpreted."}
+      ],
+      "produces": ["Combat IR validator", "Golden fixture suite", "IR migration rule"],
+      "done_when": "The IR validates engine-neutral facts and provenance while refusing source-game absolute damage."
     },
     {
-      "id": "deterministic-input-traces",
-      "title": "Record and replay deterministic combat traces",
-      "priority": 1,
-      "depends_on": ["ir-schema-v1"],
-      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "local",
-      "allowed_paths": ["core/**", "fixtures/**", "tools/**", "verification/**", "README.md", "architecture.md"],
-      "checks": ["local_contract", "rust_tests"],
-      "done_when": "The same synthetic input/world trace produces byte-stable action and contact events across repeated runs."
+      "id": "deterministic-traces", "title": "Record and replay deterministic combat traces", "phase": "foundation", "priority": 1,
+      "depends_on": ["ir-schema-and-fixtures"], "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false}, "acceptance_ceiling": "local",
+      "allowed_paths": ["core/**", "fixtures/**", "tools/**", "verification/**", "README.md"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "format", "work": "Define tick-based input, world, action, motion, contact, stamina, consequence, and presentation-observation events.", "touches": ["core/**", "fixtures/**"], "done_when": "Every event has stable identity and ordering without wall-clock dependence."},
+        {"id": "replay", "work": "Implement headless replay and canonical serialization.", "touches": ["core/**", "tools/**"], "done_when": "Repeated runs are byte-identical."},
+        {"id": "perspective", "work": "Prove perspective markers cannot alter core output.", "touches": ["core/tests/**", "fixtures/**"], "done_when": "Action, motion, i-frame, stamina, and contact bytes remain identical."}
+      ],
+      "produces": ["Canonical trace format", "Replay runner", "Determinism fixtures"],
+      "done_when": "Synthetic combat traces replay byte-for-byte and presentation events are mechanically inert."
     },
     {
-      "id": "skyrim-stamina-authority",
-      "title": "Make Skyrim authoritative for stamina",
-      "priority": 1,
-      "depends_on": [],
-      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "windows",
-      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md", "architecture.md"],
-      "checks": ["local_contract", "rust_tests"],
-      "done_when": "The core schedules and reports costs while Skyrim owns the pool, maximum, regeneration, and save state; ABI and synthetic tests cover exhaustion."
+      "id": "reproducible-builds", "title": "Pin macOS, Windows, ABI, and package builds", "phase": "foundation", "priority": 1,
+      "depends_on": [], "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false}, "acceptance_ceiling": "windows",
+      "allowed_paths": [".github/**", "core/**", "plugin/**", "tools/**", "verification/**", "README.md", "docs/**"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "abi", "work": "Gate Rust/C sizes, offsets, enum values, and calling convention for every ABI revision.", "touches": ["core/**", "plugin/**"], "done_when": "Any ABI drift fails before packaging."},
+        {"id": "windows", "work": "Pin Rust, MSVC, CommonLib, CMake, Ninja, and vcpkg inputs.", "touches": [".github/**", "plugin/**", "README.md"], "done_when": "A clean Windows runner produces both synthetic DLLs."},
+        {"id": "package", "work": "Stage the mod from explicit inputs while excluding owner data, generated animations/audio, logs, and secrets.", "touches": ["plugin/**", "tools/**"], "done_when": "The artifact inventory contains no forbidden files."}
+      ],
+      "produces": ["Pinned build matrix", "ABI gate", "Safe synthetic mod artifact"],
+      "done_when": "Local and Windows builds are reproducible and packaging is proprietary-data safe."
     },
     {
-      "id": "movement-controller-adapter",
-      "title": "Route root-motion intent through Skyrim collision",
-      "priority": 1,
-      "depends_on": [],
-      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "windows",
-      "allowed_paths": ["plugin/**", "verification/**", "README.md", "architecture.md"],
-      "checks": ["local_contract"],
-      "done_when": "A narrow adapter applies bounded movement requests through the character controller without teleporting and reports actual position next tick."
+      "id": "runtime-evidence-harness", "title": "Capture exact-commit runtime evidence", "phase": "foundation", "priority": 2,
+      "depends_on": ["deterministic-traces", "reproducible-builds"], "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false}, "acceptance_ceiling": "local",
+      "allowed_paths": ["tools/**", "verification/**", "docs/**", "README.md"], "checks": ["local_contract", "tool_tests"],
+      "subtasks": [
+        {"id": "capture", "work": "Capture commit, dirty state, source fingerprint, DLL/log hashes, runtime versions, hardware, and assertions.", "touches": ["tools/**", "verification/**"], "done_when": "The ignored manifest rejects placeholders and missing fields."},
+        {"id": "staleness", "work": "Reject evidence for another commit, source table, artifact, log, or acceptance key.", "touches": ["tools/**", "tools/tests/**"], "done_when": "Every stale dimension has a regression test."}
+      ],
+      "produces": ["Evidence schema", "Capture/fingerprint tool", "Staleness tests"],
+      "done_when": "Release evidence is exact-commit and cannot be manufactured from host tests."
     },
     {
-      "id": "incoming-hit-arbitration",
-      "title": "Arbitrate incoming dodge, block, and hurt results",
-      "priority": 1,
-      "depends_on": [],
-      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "windows",
-      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md", "architecture.md"],
-      "checks": ["local_contract", "rust_tests"],
-      "done_when": "Incoming native hits are classified once as dodged, jumped, blocked, guard-broken, or landed without duplicating Skyrim damage."
+      "id": "owner-dump-import", "title": "Import owner-generated Elden Ring inputs safely", "phase": "owner-data", "priority": 2,
+      "depends_on": ["ir-schema-and-fixtures"], "requires": {"owner_dump": true, "skyrim_runtime": false, "crossover": false}, "acceptance_ceiling": "source",
+      "allowed_paths": ["tools/**", "docs/**", "verification/**", "core/**", ".gitignore", "README.md"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "inventory", "work": "Validate the pinned regulation, action, animation, skeleton, and sound input inventory and source build.", "touches": ["tools/owner_data.py", "docs/EXTRACTION.md"], "done_when": "Missing, wrong-build, or unsafe inputs fail before installation."},
+        {"id": "fingerprint", "work": "Hash all imported inputs into one reproducible provenance record.", "touches": ["tools/owner_data.py", "verification/**"], "done_when": "Any byte change changes the source fingerprint."},
+        {"id": "install", "work": "Validate before atomically installing generated outputs only under ignored owner-data paths.", "touches": ["tools/owner_data.py", "core/build.rs", ".gitignore"], "done_when": "Failed import preserves the last valid table and generated assets remain untracked."}
+      ],
+      "produces": ["Validated owner-data install", "Source fingerprint", "Import report"],
+      "done_when": "The owner bundle imports safely and the source profile names its exact fingerprint."
     },
     {
-      "id": "deterministic-event-log",
-      "title": "Emit deterministic runtime event logs",
-      "priority": 1,
-      "depends_on": ["deterministic-input-traces"],
-      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "windows",
-      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "tools/**", "verification/**", "README.md", "architecture.md"],
-      "checks": ["local_contract", "rust_tests"],
-      "done_when": "Action, movement, contact, confirmation, stamina, and consequence events have stable identifiers and replay-comparable serialization."
+      "id": "source-action-table", "title": "Generate and validate owner-derived action facts", "phase": "owner-data", "priority": 2,
+      "depends_on": ["owner-dump-import", "deterministic-traces"], "requires": {"owner_dump": true, "skyrim_runtime": false, "crossover": false}, "acceptance_ceiling": "source",
+      "allowed_paths": ["core/**", "tools/**", "verification/**", "docs/**", "fixtures/**"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "extract", "work": "Generate colossal-sword timings, windows, motion, sweeps, i-frames, stamina, guard, stance, and provenance.", "touches": ["tools/**", "core/src/sim/**"], "done_when": "Every slice action has a unit-normalized owner source."},
+        {"id": "validate", "work": "Reject non-finite geometry, bad references, wrong frame rate/units, and cross-build data before compilation.", "touches": ["tools/**", "core/build.rs"], "done_when": "Malformed owner data cannot compile silently."},
+        {"id": "trace", "work": "Replay the owner table while preserving its source-only claim ceiling.", "touches": ["core/tests/**", "verification/**"], "done_when": "Source traces pass and remain distinguishable from synthetic estimates."}
+      ],
+      "produces": ["Ignored extracted.rs", "Source validation report", "Owner trace results"],
+      "done_when": "The source profile passes with no estimated colossal-sword facts."
     },
     {
-      "id": "hit-stop-runtime",
-      "title": "Apply hit-stop without freezing unrelated Skyrim systems",
-      "priority": 2,
-      "depends_on": ["incoming-hit-arbitration", "deterministic-event-log"],
-      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "windows",
-      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md", "architecture.md"],
-      "checks": ["local_contract", "rust_tests"],
-      "done_when": "Confirmed hits produce bounded attacker/target hit-stop intent with deterministic overlap rules and no global time freeze."
+      "id": "animation-pipeline", "title": "Convert and validate both animation presentations", "phase": "owner-data", "priority": 3,
+      "depends_on": ["source-action-table"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": false}, "acceptance_ceiling": "runtime",
+      "allowed_paths": ["tools/**", "verification/**", "docs/**", "plugin/**"], "checks": ["local_contract", "tool_tests"],
+      "subtasks": [
+        {"id": "third-person", "work": "Retarget full-body owner actions to the Skyrim-compatible skeleton while preserving phase and root-motion references.", "touches": ["tools/**", "docs/**"], "done_when": "Skeleton, duration, events, and root-motion checks pass."},
+        {"id": "first-person", "work": "Derive corrected arms/weapon clips from the same actions without separate timing or geometry.", "touches": ["tools/**", "docs/**"], "done_when": "Clips share action IDs/durations and pass clipping review."},
+        {"id": "agreement", "work": "Compare both presentations to IR windows inside Skyrim.", "touches": ["verification/**", "plugin/**"], "done_when": "Visible and declared timing agree within one frame."}
+      ],
+      "produces": ["Ignored HKX outputs", "Retarget validation report", "One-frame agreement evidence"],
+      "done_when": "Owner-generated first- and third-person presentations validate in Skyrim and remain untracked."
     },
     {
-      "id": "consequence-ffi",
-      "title": "Expose the shared consequence contract through the ABI",
-      "priority": 2,
-      "depends_on": ["ir-schema-v1"],
-      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "windows",
-      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md", "architecture.md"],
-      "checks": ["local_contract", "rust_tests"],
-      "done_when": "Melee, spell, throwable, hazard, and creature delivery can submit one ABI-stable consequence payload without absolute source-game damage."
+      "id": "input-world-adapters", "title": "Complete input, camera heading, ground, and target facts", "phase": "colossal-sword", "priority": 3,
+      "depends_on": ["deterministic-traces", "reproducible-builds"], "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false}, "acceptance_ceiling": "windows",
+      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md"], "checks": ["local_contract", "rust_tests"],
+      "subtasks": [
+        {"id": "bindings", "work": "Implement remappable keyboard, mouse, and gamepad edges without double-firing Skyrim handlers.", "touches": ["plugin/src/Input.cpp", "plugin/dist/**"], "done_when": "All devices produce identical edge semantics."},
+        {"id": "heading", "work": "Read correct camera heading in both perspectives without exposing perspective to the core.", "touches": ["plugin/src/Bridge.cpp", "plugin/src/BridgePlan.*"], "done_when": "Camera-relative movement and wraparound tests pass."},
+        {"id": "world", "work": "Replace flat ground and missing target placeholders with narrow ground and lock-on adapters.", "touches": ["plugin/src/Bridge.cpp", "plugin/src/ActorAdapter.*"], "done_when": "The core receives collision-resolved ground and stable hostile target facts."}
+      ],
+      "produces": ["Device input adapter", "Perspective-correct heading", "Ground/target adapters"],
+      "done_when": "Required Skyrim facts cross the ABI deterministically and perspective-independently."
     },
     {
-      "id": "poise-stance-runtime",
-      "title": "Bridge separate poise and stance state to actors",
-      "priority": 2,
-      "depends_on": ["consequence-ffi", "incoming-hit-arbitration"],
-      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "windows",
-      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md", "architecture.md"],
-      "checks": ["local_contract", "rust_tests"],
-      "done_when": "Defensive poise interruption and offensive stance accumulation remain independent through actor lifecycle and serialization adapters."
+      "id": "collision-motion-runtime", "title": "Apply root-motion intent through Skyrim collision", "phase": "colossal-sword", "priority": 3,
+      "depends_on": ["input-world-adapters"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": false}, "acceptance_ceiling": "runtime",
+      "allowed_paths": ["plugin/**", "verification/**", "docs/**", "README.md"], "checks": ["local_contract"],
+      "subtasks": [
+        {"id": "request", "work": "Convert desired position into bounded character-controller requests; never teleport.", "touches": ["plugin/src/BridgePlan.*", "plugin/src/Bridge.cpp"], "done_when": "Clamp, invalid-value, grounded, airborne, and heading tests pass."},
+        {"id": "feedback", "work": "Read collision-resolved position on the next tick and feed it back to the core.", "touches": ["plugin/src/Bridge.cpp", "plugin/src/ActorAdapter.*"], "done_when": "Walls, slopes, steps, and doorways cause no accumulated drift."},
+        {"id": "matrix", "work": "Capture walk, sprint, roll, and attack motion against representative collision cases.", "touches": ["verification/**", "docs/**"], "done_when": "Runtime evidence shows no tunnelling or teleporting."}
+      ],
+      "produces": ["Character-controller adapter", "Motion regression tests", "Collision runtime matrix"],
+      "done_when": "Elden Ring motion intent survives Skyrim collision and actual Skyrim position remains authoritative."
     },
     {
-      "id": "gamepad-bindings",
-      "title": "Add remappable gamepad bindings",
-      "priority": 2,
-      "depends_on": [],
-      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "windows",
-      "allowed_paths": ["plugin/**", "verification/**", "README.md"],
-      "checks": ["local_contract"],
-      "done_when": "Keyboard, mouse, and gamepad produce the same edge semantics without double-firing Skyrim handlers."
+      "id": "native-melee-delivery", "title": "Submit and reconcile Skyrim-native melee hits", "phase": "colossal-sword", "priority": 3,
+      "depends_on": ["collision-motion-runtime"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": false}, "acceptance_ceiling": "runtime",
+      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md"], "checks": ["local_contract", "rust_tests"],
+      "subtasks": [
+        {"id": "observe", "work": "Keep sweep contact as a deterministic observation with stable action/target identity.", "touches": ["plugin/src/ActorAdapter.*", "plugin/src/BridgePlan.*"], "done_when": "Selection is order-independent and stale/duplicate observations fail."},
+        {"id": "submit", "work": "Submit the equipped weapon's normal Skyrim hit path through a narrow gateway.", "touches": ["plugin/src/Bridge.cpp", "plugin/src/ActorAdapter.*"], "done_when": "Skyrim perks, armour, difficulty, gore, and attribution remain active."},
+        {"id": "confirm", "work": "Confirm core contact only after the matching successful native submission, once.", "touches": ["plugin/src/Bridge.cpp", "plugin/src/BridgePlan.*", "core/src/ffi.rs"], "done_when": "Misses, mismatches, projectiles, stale events, and duplicates cannot confirm."}
+      ],
+      "produces": ["Native melee gateway", "Exactly-once reconciler", "Contact regression tests"],
+      "done_when": "One live sweep yields one matching Skyrim-native hit and one core confirmation."
     },
     {
-      "id": "runtime-evidence-capture",
-      "title": "Automate exact-commit runtime evidence capture",
-      "priority": 2,
-      "depends_on": ["deterministic-event-log"],
-      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "local",
-      "allowed_paths": ["tools/**", "verification/**", "docs/**", "README.md", "architecture.md"],
-      "checks": ["local_contract", "tool_tests"],
-      "done_when": "A tool fingerprints DLLs, logs, commit, runtime versions, hardware, and explicit acceptance assertions without committing evidence."
+      "id": "incoming-defense-stamina", "title": "Integrate incoming defense and Skyrim stamina", "phase": "colossal-sword", "priority": 3,
+      "depends_on": ["input-world-adapters"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": false}, "acceptance_ceiling": "runtime",
+      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md"], "checks": ["local_contract", "rust_tests"],
+      "subtasks": [
+        {"id": "defense", "work": "Classify incoming native contact once as dodged, jumped, blocked, guard-broken, or landed.", "touches": ["core/src/ffi.rs", "plugin/src/Bridge.cpp"], "done_when": "Only landed contact reaches damage and every result logs once."},
+        {"id": "stamina", "work": "Let the core schedule costs while Skyrim owns pool, maximum, regeneration, perks, and saves.", "touches": ["core/**", "plugin/**"], "done_when": "Exhaustion is deterministic and no parallel saved pool exists."},
+        {"id": "guard", "work": "Resolve direction, guard cost, break, and animation through a narrow adapter.", "touches": ["core/**", "plugin/**"], "done_when": "Guard keeps Skyrim equipment/perks and core timing."}
+      ],
+      "produces": ["Incoming arbitration", "Stamina adapter", "Dodge/block/guard tests"],
+      "done_when": "Incoming contact and stamina resolve authoritatively without duplicate damage or spend."
     },
     {
-      "id": "owner-action-validation",
-      "title": "Validate real extracted actions against the IR",
-      "priority": 3,
-      "depends_on": ["ir-schema-v1", "deterministic-input-traces"],
-      "requires": {"owner_dump": true, "skyrim_runtime": false, "crossover": false},
-      "acceptance_ceiling": "source",
-      "allowed_paths": ["core/**", "tools/**", "verification/**", "docs/**"],
-      "checks": ["local_contract", "rust_tests", "tool_tests"],
-      "done_when": "Owner-generated timings, motion, sweeps, stamina, and provenance validate and are fingerprinted under the source profile."
+      "id": "hit-stop-runtime-log", "title": "Apply local hit-stop and structured runtime logging", "phase": "colossal-sword", "priority": 3,
+      "depends_on": ["native-melee-delivery", "incoming-defense-stamina", "deterministic-traces"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": false}, "acceptance_ceiling": "runtime",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "tools/**", "verification/**"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "hit-stop", "work": "Freeze bounded attacker/target presentation and combat stepping without globally pausing Skyrim.", "touches": ["core/**", "plugin/**"], "done_when": "Overlap, menu, kill, and chained-hit rules are deterministic."},
+        {"id": "logging", "work": "Log action, motion, contact, stamina, defense, hit-stop, and perspective events with stable IDs/ticks.", "touches": ["core/**", "plugin/**", "tools/**"], "done_when": "Runtime logs compare to headless replay without pointers or wall clock."}
+      ],
+      "produces": ["Local hit-stop runtime", "Structured deterministic runtime log", "Replay comparison"],
+      "done_when": "Confirmed hits create bounded local hit-stop and a complete safe deterministic trail."
     },
     {
-      "id": "animation-retarget-validation",
-      "title": "Validate owner-generated animation retargeting",
-      "priority": 3,
-      "depends_on": ["owner-action-validation"],
-      "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": false},
-      "acceptance_ceiling": "runtime",
-      "allowed_paths": ["tools/**", "verification/**", "docs/**", "plugin/**"],
-      "checks": ["local_contract", "tool_tests"],
-      "done_when": "Converted owner animations match IR windows within one frame and pass skeleton/root-motion validation in Skyrim."
+      "id": "dual-perspective-runtime", "title": "Synchronize first- and third-person combat presentation", "phase": "colossal-sword", "priority": 3,
+      "depends_on": ["animation-pipeline", "collision-motion-runtime", "hit-stop-runtime-log"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": false}, "acceptance_ceiling": "runtime",
+      "allowed_paths": ["tools/**", "verification/**", "docs/**", "plugin/**", "README.md", "architecture.md"], "checks": ["local_contract", "tool_tests"],
+      "subtasks": [
+        {"id": "graphs", "work": "Drive or seek both graphs from the same action ID, serial, and frame; never restart on view change.", "touches": ["plugin/**", "tools/**"], "done_when": "Switching view reveals the same action phase."},
+        {"id": "cameras", "work": "Integrate collision-aware third-person and stable-horizon first-person cameras.", "touches": ["plugin/**"], "done_when": "Roll, knockdown, attack, and hit-stop avoid clipping and unwanted horizon roll."},
+        {"id": "continuity", "work": "Toggle during startup, live hit, recovery, charge, roll, stagger, and hit-stop.", "touches": ["verification/**", "tools/**"], "done_when": "Serial/frame, motion, stamina, i-frames, target, buffer, and contacts remain unchanged."}
+      ],
+      "produces": ["Dual-graph adapter", "Two camera adapters", "Continuity trace"],
+      "done_when": "Both views present one combat state and perspective changes are mechanically inert."
     },
     {
-      "id": "crossover-colossal-sword-slice",
-      "title": "Prove the colossal-sword slice under CrossOver",
-      "priority": 3,
-      "depends_on": ["skyrim-stamina-authority", "movement-controller-adapter", "incoming-hit-arbitration", "hit-stop-runtime", "poise-stance-runtime", "animation-retarget-validation", "runtime-evidence-capture"],
-      "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": true},
-      "acceptance_ceiling": "release",
-      "allowed_paths": ["plugin/**", "verification/**", "docs/**", "README.md"],
-      "checks": ["local_contract"],
-      "done_when": "Every release acceptance assertion passes on the M2 Pro against artifacts and owner data fingerprinted to the exact commit."
+      "id": "crossover-colossal-sword", "title": "Prove the complete melee slice under CrossOver", "phase": "colossal-sword", "priority": 3,
+      "depends_on": ["source-action-table", "native-melee-delivery", "incoming-defense-stamina", "hit-stop-runtime-log", "dual-perspective-runtime", "runtime-evidence-harness"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["plugin/**", "verification/**", "docs/**", "README.md"], "checks": ["local_contract"],
+      "subtasks": [
+        {"id": "combat", "work": "Run the fixed one-actor trace for every melee acceptance assertion.", "touches": ["verification/**", "docs/**"], "done_when": "Every assertion has direct captured evidence."},
+        {"id": "views", "work": "Run paired views and mid-action switches from one starting save.", "touches": ["verification/**", "docs/**"], "done_when": "Presentation, continuity, and timing/geometry parity pass."},
+        {"id": "bind", "work": "Bind source, artifacts, log, versions, hardware, and commit.", "touches": ["verification/**"], "done_when": "Release verification passes with a clean tree."}
+      ],
+      "produces": ["CrossOver melee capture", "Exact-commit evidence manifest", "First release proof"],
+      "done_when": "All 14 release assertions pass on Apple Silicon CrossOver."
+    },
+    {
+      "id": "action-armament-balance", "title": "Complete action envelopes and armament translation", "phase": "balance", "priority": 4,
+      "depends_on": ["crossover-colossal-sword"], "requires": {"owner_dump": true, "skyrim_runtime": false, "crossover": false}, "acceptance_ceiling": "source",
+      "allowed_paths": ["core/**", "experiments/**", "fixtures/**", "tools/**", "verification/**", "docs/**"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "roles", "work": "Define envelopes for light, heavy, charged, crouch, jump, run, roll, counter, paired, and multihit actions.", "touches": ["core/src/balance.rs", "experiments/**"], "done_when": "Commitment, damage, stamina, reach, safety, stance, and buildup are constrained."},
+        {"id": "translator", "work": "Translate source ratios into bounded Skyrim multipliers without source absolute attack rating.", "touches": ["core/src/balance.rs", "fixtures/**"], "done_when": "Outliers clamp or fail with named diagnostics."},
+        {"id": "cap", "work": "Apply armament personality once with skill/status power-budget tradeoffs and the 1.15x cap.", "touches": ["core/src/balance.rs", "core/src/bin/**"], "done_when": "A dominant action, duplicate bonus, and over-cap weapon fail tests/reports."}
+      ],
+      "produces": ["Action role policy", "Bounded translator", "Balance report"],
+      "done_when": "Balance is data-driven, capped, and calibrated against Skyrim rather than source absolutes."
+    },
+    {
+      "id": "consequence-abi-state", "title": "Expose and persist the shared consequence contract", "phase": "consequences", "priority": 5,
+      "depends_on": ["action-armament-balance"], "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false}, "acceptance_ceiling": "windows",
+      "allowed_paths": ["core/**", "plugin/**", "verification/**", "fixtures/**", "README.md"], "checks": ["local_contract", "rust_tests"],
+      "subtasks": [
+        {"id": "abi", "work": "Expose delivery identity, elements, buildup, modifiers, poise, stance, and outcomes with explicit layouts.", "touches": ["core/**", "plugin/**"], "done_when": "C/Rust size, offset, enum, and invalid-value tests pass."},
+        {"id": "actors", "work": "Key state by stable actor identity and handle unload, death, respawn, and form reuse.", "touches": ["core/src/consequences.rs", "plugin/**"], "done_when": "State never leaks between actor lifecycles."},
+        {"id": "save", "work": "Version and migrate only SkyRing-owned persistent state.", "touches": ["core/**", "plugin/**"], "done_when": "Round-trip never duplicates Skyrim health, stats, or inventory."}
+      ],
+      "produces": ["Consequence ABI", "Actor state adapter", "Save migration contract"],
+      "done_when": "Every delivery can submit one stable payload and only permitted state persists."
+    },
+    {
+      "id": "effects-runtime", "title": "Map elements, statuses, buffs, debuffs, and affinities", "phase": "consequences", "priority": 5,
+      "depends_on": ["consequence-abi-state"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": false}, "acceptance_ceiling": "runtime",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "verification/**", "docs/**"], "checks": ["local_contract", "rust_tests"],
+      "subtasks": [
+        {"id": "elements", "work": "Map five semantic channels to Skyrim-native damage/resistance without double damage.", "touches": ["core/src/consequences.rs", "plugin/**"], "done_when": "Shares are safe and each resistance path is observed."},
+        {"id": "statuses", "work": "Bridge six independent threshold/decay/immunity/lockout/source-attributed meters and procs.", "touches": ["core/src/effects.rs", "plugin/**"], "done_when": "Each status has one Skyrim-facing proc and independent state."},
+        {"id": "modifiers", "work": "Bridge explicit additive, multiplicative, override, priority, refresh, replace, and reject rules.", "touches": ["core/src/effects.rs", "plugin/**"], "done_when": "Application order cannot change results."},
+        {"id": "affinities", "work": "Compose weapon element/buildup changes as data, not a replacement enchanting engine.", "touches": ["core/**", "fixtures/**"], "done_when": "Affinities add no requirements and respect the armament cap."}
+      ],
+      "produces": ["Element adapters", "Status proc adapters", "Modifier adapter", "Affinity schema"],
+      "done_when": "Every consequence channel resolves independently through Skyrim authority."
+    },
+    {
+      "id": "crossover-consequence-slice", "title": "Prove independent consequence channels", "phase": "consequences", "priority": 5,
+      "depends_on": ["effects-runtime", "runtime-evidence-harness"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["core/**", "plugin/**", "verification/**", "docs/**"], "checks": ["local_contract", "rust_tests"],
+      "subtasks": [
+        {"id": "independence", "work": "Apply element, status, debuff, poise, and stance from one melee action.", "touches": ["core/tests/**", "verification/**"], "done_when": "All five resolve independently and once."},
+        {"id": "targets", "work": "Capture susceptible, resistant, and immune actors.", "touches": ["verification/**", "docs/**"], "done_when": "CrossOver results match configured actor rules."}
+      ],
+      "produces": ["Independent-channel matrix", "CrossOver consequence evidence"],
+      "done_when": "The Phase 3 slice passes without a competing effect or damage engine."
+    },
+    {
+      "id": "posture-runtime", "title": "Integrate poise, stance, hyperarmour, and ripostes", "phase": "posture", "priority": 6,
+      "depends_on": ["crossover-consequence-slice"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": false}, "acceptance_ceiling": "runtime",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "verification/**", "docs/**"], "checks": ["local_contract", "rust_tests"],
+      "subtasks": [
+        {"id": "poise", "work": "Derive defensive interruption from armour/effects without touching stance.", "touches": ["core/src/posture.rs", "plugin/**"], "done_when": "Withstood/interrupted outcomes follow threshold and recovery."},
+        {"id": "stance", "work": "Accumulate offensive stance with decay, lockout, lifecycle, and source-attributed breaks.", "touches": ["core/src/posture.rs", "plugin/**"], "done_when": "Poise events cannot cause or reset stance."},
+        {"id": "hyperarmour", "work": "Activate declared action windows without granting damage immunity.", "touches": ["core/**", "plugin/**"], "done_when": "Heavy builds trade through interruption but take normal damage."},
+        {"id": "riposte", "work": "Suppress random combat killmoves and open one target-bound riposte window on stance break.", "touches": ["core/**", "plugin/**"], "done_when": "Only a fresh matching break enables one killmove."}
+      ],
+      "produces": ["Poise/stance adapters", "Hyperarmour integration", "Earned riposte routing"],
+      "done_when": "Interruption, stance breaking, and ripostes remain separate and deterministic."
+    },
+    {
+      "id": "crossover-posture-slice", "title": "Prove posture and ripostes under CrossOver", "phase": "posture", "priority": 6,
+      "depends_on": ["posture-runtime"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["plugin/**", "verification/**", "docs/**"], "checks": ["local_contract"],
+      "subtasks": [
+        {"id": "trade", "work": "Compare heavy and light builds under the same incoming hit/action window.", "touches": ["verification/**", "docs/**"], "done_when": "Only the qualified heavy build completes the trade."},
+        {"id": "break", "work": "Capture stance accumulation, break, riposte, expiry, and duplicate rejection.", "touches": ["verification/**", "docs/**"], "done_when": "Only earned stance break produces the killmove."}
+      ],
+      "produces": ["CrossOver trade capture", "Stance/riposte evidence"],
+      "done_when": "The posture phase stop condition passes under CrossOver."
+    },
+    {
+      "id": "projectile-adapter", "title": "Add Skyrim-authoritative projectile identity and impact", "phase": "bows", "priority": 7,
+      "depends_on": ["crossover-posture-slice", "consequence-abi-state"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": false}, "acceptance_ceiling": "runtime",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "verification/**", "docs/**"], "checks": ["local_contract", "rust_tests"],
+      "subtasks": [
+        {"id": "release", "work": "Snapshot action, release, projectile, shooter, equipment, and payload identities at launch.", "touches": ["core/**", "plugin/**"], "done_when": "Equipment swaps cannot mutate in-flight payloads."},
+        {"id": "flight", "work": "Let Skyrim own projectile flight, collision, world impact, and target.", "touches": ["plugin/**"], "done_when": "The core performs no parallel raycast."},
+        {"id": "impact", "work": "Correlate actor impact and resolve permitted consequences exactly once.", "touches": ["core/**", "plugin/**"], "done_when": "Misses, world hits, stale IDs, unowned projectiles, and duplicates do nothing."}
+      ],
+      "produces": ["Projectile identity ABI", "Skyrim projectile adapter", "Impact tests"],
+      "done_when": "Shared ranged transport is deterministic while Skyrim owns flight and collision."
+    },
+    {
+      "id": "bow-arrow-runtime", "title": "Implement one committed bow and three arrow profiles", "phase": "bows", "priority": 7,
+      "depends_on": ["projectile-adapter", "effects-runtime"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": false}, "acceptance_ceiling": "runtime",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "tools/**", "verification/**"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "actions", "work": "Add longbow draw, hold, release, recovery, cancel, motion, stamina, and animation facts.", "touches": ["core/**", "tools/**", "fixtures/**"], "done_when": "The bow uses the common action state machine, not magic."},
+        {"id": "arrows", "work": "Compose physical, elemental, and buildup ammo from Skyrim base damage plus shared payloads.", "touches": ["core/**", "plugin/**", "fixtures/**"], "done_when": "Inventory consumes once and only declared payloads apply."},
+        {"id": "defense", "work": "Route incoming arrows through existing i-frame and block arbitration.", "touches": ["core/**", "plugin/**"], "done_when": "Defense matches melee semantics in both views."}
+      ],
+      "produces": ["Longbow actions", "Three-arrow matrix", "Projectile defense integration"],
+      "done_when": "The bow slice uses committed action, Skyrim projectile/damage, and shared consequences."
+    },
+    {
+      "id": "crossover-bow-slice", "title": "Prove bow delivery under CrossOver", "phase": "bows", "priority": 7,
+      "depends_on": ["bow-arrow-runtime", "runtime-evidence-harness"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["plugin/**", "verification/**", "docs/**", "README.md"], "checks": ["local_contract"],
+      "subtasks": [
+        {"id": "outgoing", "work": "Capture draw/release/recovery, misses, world hits, and three ammo impacts.", "touches": ["verification/**", "docs/**"], "done_when": "Each release resolves zero or one permitted actor impact."},
+        {"id": "incoming", "work": "Capture incoming dodge/block and both perspectives.", "touches": ["verification/**", "docs/**"], "done_when": "Defense and perspective parity match melee."},
+        {"id": "bind", "work": "Bind evidence to source, artifacts, runtime, log, and commit.", "touches": ["verification/**"], "done_when": "The bow gate cannot pass from host tests."}
+      ],
+      "produces": ["CrossOver bow capture", "Arrow matrix evidence", "Bow evidence manifest"],
+      "done_when": "One longbow passes committed, native, exactly-once ranged delivery in both views."
+    },
+    {
+      "id": "gear-axis-runtime", "title": "Replace tempering and add catalyst quality", "phase": "gear-axis", "priority": 8,
+      "depends_on": ["crossover-bow-slice"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "verification/**", "docs/**"], "checks": ["local_contract", "rust_tests"],
+      "subtasks": [
+        {"id": "stones", "work": "Define standard/somber tiers and map every weapon, staff, and ring to one bounded track.", "touches": ["core/**", "fixtures/**"], "done_when": "Stone tier caps quality and no item has two tracks."},
+        {"id": "tempering", "work": "Disable/redirect governed tempering and migrate existing tempered saves safely.", "touches": ["plugin/**", "docs/**"], "done_when": "Smithing cannot exceed the tier ceiling and migration loses no items."},
+        {"id": "catalyst-quality", "work": "Use relative catalyst ordering and spell power ratios rebuilt against Skyrim health economy.", "touches": ["core/**", "plugin/**", "fixtures/**"], "done_when": "No source absolute scaling enters gameplay."},
+        {"id": "playtest", "work": "Run the level 1-30 mage and level-40 named-weapon checks.", "touches": ["verification/**", "docs/**"], "done_when": "Mage growth persists and named gear remains relevant within policy."}
+      ],
+      "produces": ["Upgrade tracks", "Tempering/save migration", "Catalyst ratio map", "Gear-axis evidence"],
+      "done_when": "Weapons and catalysts share bounded gear quality while Skyrim owns progression."
+    },
+    {
+      "id": "catalyst-runtime-slice", "title": "Implement and prove catalyst equipment and passives", "phase": "catalysts", "priority": 9,
+      "depends_on": ["gear-axis-runtime"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "verification/**", "docs/**"], "checks": ["local_contract", "rust_tests"],
+      "subtasks": [
+        {"id": "equipment", "work": "Implement staves and worn ring catalysts whose casting dedicates the selected hand.", "touches": ["core/**", "plugin/**"], "done_when": "Casting cannot coexist with a full weapon/shield loadout in that hand."},
+        {"id": "passives", "work": "Apply one data-driven passive per catalyst by spell-family tag with explicit stacking.", "touches": ["core/**", "fixtures/**"], "done_when": "Passives are bounded and never gate use."},
+        {"id": "dual", "work": "Resolve dual-catalyst/powerstance behavior without duplicate scaling.", "touches": ["core/**", "plugin/**"], "done_when": "Two catalysts create one documented combined result."},
+        {"id": "prove", "work": "Compare three catalysts and single-versus-dual builds under CrossOver.", "touches": ["verification/**", "docs/**"], "done_when": "Different passives create meaningful bounded build choices."}
+      ],
+      "produces": ["Catalyst equipment adapter", "Passive schema", "Dual-catalyst matrix", "Catalyst evidence"],
+      "done_when": "Catalysts obey hand cost, upgrades, scaling, and passives and produce distinct builds."
+    },
+    {
+      "id": "magic-runtime-slice", "title": "Implement and prove the representative magic matrix", "phase": "magic", "priority": 10,
+      "depends_on": ["catalyst-runtime-slice", "projectile-adapter"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "tools/**", "verification/**", "docs/**"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "actions", "work": "Build cast startup, charge, release, recovery, cancel, motion, exposure, and both presentations on the common action clock.", "touches": ["core/**", "tools/**", "plugin/**"], "done_when": "Magic has no separate timing engine."},
+        {"id": "economy", "work": "Spend Skyrim magicka, freeze regen in combat, restore normal regen outside combat, and reject insufficient resources.", "touches": ["core/**", "plugin/**"], "done_when": "No parallel FP pool or save state exists."},
+        {"id": "matrix", "work": "Configure direct, projectile, persistent area, buff, debuff, status, and charged spells without duplicate Skyrim spell identities.", "touches": ["core/**", "plugin/**", "fixtures/**"], "done_when": "All seven compose existing delivery/effect/catalyst paths."},
+        {"id": "prove", "work": "Capture the seven cases, magicka transitions, perspective parity, and a gravity/Alteration build under CrossOver.", "touches": ["verification/**", "docs/**"], "done_when": "Every case resolves once and the phase stop condition passes."}
+      ],
+      "produces": ["Committed casting", "Magicka adapter", "Seven-case spell matrix", "Magic evidence"],
+      "done_when": "Magic composes proven systems and the complete slice passes under CrossOver."
+    },
+    {
+      "id": "enemy-symmetry-slice", "title": "Implement and prove readable NPC rule symmetry", "phase": "enemy-symmetry", "priority": 11,
+      "depends_on": ["magic-runtime-slice"], "requires": {"owner_dump": false, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "verification/**", "docs/**"], "checks": ["local_contract", "rust_tests"],
+      "subtasks": [
+        {"id": "actions", "work": "Route selected NPC attacks through committed windows, stamina, contacts, posture, and effects.", "touches": ["core/**", "plugin/**", "fixtures/**"], "done_when": "Player and NPC logs use comparable semantics."},
+        {"id": "pathing", "work": "Integrate supported movement/pathing and aggression/confidence without a new AI engine.", "touches": ["plugin/**", "docs/**"], "done_when": "Ownership is documented and enemies advance, circle, and disengage."},
+        {"id": "prove", "work": "Capture approach, attack, recovery, exhaustion, poise, stance break, and punish cases.", "touches": ["verification/**", "docs/**"], "done_when": "One enemy is readable and punishable under CrossOver."},
+        {"id": "telegraphs", "work": "Record an evidence-based decision before authoring up to five custom telegraph sets.", "touches": ["verification/**", "docs/**"], "done_when": "Telegraphs begin only for failures remaining after symmetry/pathing tuning."}
+      ],
+      "produces": ["NPC action adapter", "Pathing ownership map", "Enemy evidence", "Telegraph decision"],
+      "done_when": "A selected enemy is legible because it obeys shared combat rules."
+    },
+    {
+      "id": "breadth-save-compatibility", "title": "Expand content and harden saves and modlist compatibility", "phase": "breadth-compatibility", "priority": 12,
+      "depends_on": ["enemy-symmetry-slice"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "tools/**", "verification/**", "docs/**", "README.md"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "weapons", "work": "Add weapon classes individually through IR, envelope, animation, geometry, native damage, and regression.", "touches": ["core/**", "fixtures/**", "tools/**"], "done_when": "Each class passes and preserves earlier slices."},
+        {"id": "ranged-magic", "work": "Expand arrows, bows, catalysts, and spells only through proven contracts.", "touches": ["core/**", "plugin/**", "fixtures/**"], "done_when": "No content item creates a private delivery/effect path."},
+        {"id": "saves", "work": "Test new/existing saves, upgrades, downgrade refusal, lifecycle, disable, and reinstall.", "touches": ["plugin/**", "verification/**", "docs/**"], "done_when": "Supported migrations preserve data and unsupported ones fail safely."},
+        {"id": "modlist", "work": "Run the ownership matrix against Gate to Sovngarde combat, camera, animation, dodge, hit, stamina, and HUD mods.", "touches": ["plugin/**", "verification/**", "docs/**"], "done_when": "Every job has one owner in combat and normal ownership when sheathed."}
+      ],
+      "produces": ["Content regressions", "Save matrix", "Gate to Sovngarde compatibility report"],
+      "done_when": "Breadth grows through stable contracts and target saves/modlist pass under CrossOver."
+    },
+    {
+      "id": "torrent-runtime-slice", "title": "Implement and prove Torrent", "phase": "torrent", "priority": 13,
+      "depends_on": ["breadth-save-compatibility"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "tools/**", "verification/**", "docs/**"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "lifecycle", "work": "Implement instant summon/dismiss, interior lockout, health, death, cooldown, and save rules.", "touches": ["core/**", "plugin/**"], "done_when": "No duplicate mount or cooldown/interior bypass exists."},
+        {"id": "traversal", "work": "Implement collision-preserved mounted motion, double jump, landing, and dismount.", "touches": ["core/**", "plugin/**"], "done_when": "Traversal cannot teleport through world geometry."},
+        {"id": "combat", "work": "Implement left/right committed mounted attacks, stamina, geometry, native damage, and stagger immunity.", "touches": ["core/**", "plugin/**", "tools/**"], "done_when": "Mounted combat uses shared contracts and hits never stagger-dismount."},
+        {"id": "prove", "work": "Capture lifecycle, traversal, combat, and mounted-to-on-foot regression under CrossOver.", "touches": ["verification/**", "docs/**"], "done_when": "Mounted combat is viable and on-foot state remains clean."}
+      ],
+      "produces": ["Torrent lifecycle", "Mounted traversal", "Mounted combat", "Torrent evidence"],
+      "done_when": "Torrent meets every Charter decision without regressing on-foot combat."
+    },
+    {
+      "id": "authored-encounter", "title": "Build and prove the priority authored encounter", "phase": "encounters", "priority": 14,
+      "depends_on": ["enemy-symmetry-slice", "breadth-save-compatibility"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "tools/**", "verification/**", "docs/**"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "framework", "work": "Define placement, reset, quest/save safety, arena, rewards, and telemetry without replacing Skyrim quest authority.", "touches": ["core/**", "plugin/**", "docs/**"], "done_when": "Entry, failure, reset, win, save, and revisit are safe."},
+        {"id": "bleak-falls", "work": "Implement the Charter's Bleak Falls word-wall encounter without changing the dungeon approach.", "touches": ["plugin/**", "fixtures/**", "docs/**"], "done_when": "The fight rewards learned dodge/commitment rules and preserves quest flow."},
+        {"id": "prove", "work": "Capture win, loss/reset, quest, save/load, both views, and modlist paths.", "touches": ["verification/**", "docs/**"], "done_when": "Exact-commit CrossOver evidence passes."}
+      ],
+      "produces": ["Encounter contract", "Bleak Falls encounter", "Encounter evidence"],
+      "done_when": "The priority encounter is a safe Skyrim quest citizen and honest combat-platform test."
+    },
+    {
+      "id": "combat-platform-release", "title": "Ship the complete combat platform before megafauna", "phase": "ship", "priority": 15,
+      "depends_on": ["crossover-colossal-sword", "crossover-consequence-slice", "crossover-posture-slice", "crossover-bow-slice", "gear-axis-runtime", "catalyst-runtime-slice", "magic-runtime-slice", "enemy-symmetry-slice", "breadth-save-compatibility", "torrent-runtime-slice", "authored-encounter"],
+      "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": [".github/**", "core/**", "plugin/**", "tools/**", "verification/**", "docs/**", "README.md"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "matrix", "work": "Run local, source, Windows, Skyrim, CrossOver, perspectives, saves, modlist, and all slice regressions on one candidate.", "touches": ["verification/**", "docs/**"], "done_when": "Every gate passes or release is blocked by a named assertion."},
+        {"id": "package", "work": "Build deterministic install artifacts, configuration, licenses, compatibility, upgrade, extraction, and rollback docs.", "touches": ["plugin/**", "tools/**", "README.md", "docs/**"], "done_when": "A clean install contains no generated proprietary assets."},
+        {"id": "evidence", "work": "Fingerprint final DLLs, source, runtime log, versions, hardware, commit, and assertions.", "touches": ["verification/**"], "done_when": "Release verification passes for the shipped archive."}
+      ],
+      "produces": ["Combat-platform package", "Full regression matrix", "Release evidence bundle"],
+      "done_when": "The combat platform ships independently of megafauna with exact-commit CrossOver proof."
+    },
+    {
+      "id": "megafauna-last", "title": "Add megafauna only after the combat release", "phase": "megafauna", "priority": 16,
+      "depends_on": ["combat-platform-release"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": ["plugin/**", "fixtures/**", "tools/**", "verification/**", "docs/**"], "checks": ["local_contract", "tool_tests"],
+      "subtasks": [
+        {"id": "budget", "work": "Select the smallest creature set and record mesh, skeleton, animation, collision, camera, and performance cost.", "touches": ["docs/**", "verification/**"], "done_when": "No creature starts without a bounded rigging plan."},
+        {"id": "creature", "work": "Complete one creature through owner-only conversion, readable actions, collision, effects, camera, and saves.", "touches": ["plugin/**", "tools/**", "fixtures/**"], "done_when": "It follows shared rules and generated assets remain ignored."},
+        {"id": "profile", "work": "Profile CPU, animation, collision, memory, and CrossOver before adding another creature.", "touches": ["verification/**", "docs/**"], "done_when": "A recorded budget decides whether breadth continues."}
+      ],
+      "produces": ["Megafauna cost ledger", "One creature integration", "Performance evidence"],
+      "done_when": "Megafauna remains last, bounded, and unable to delay the combat-platform release."
+    },
+    {
+      "id": "zero-to-hero-release", "title": "Produce the final complete release after megafauna", "phase": "complete", "priority": 17,
+      "depends_on": ["combat-platform-release", "megafauna-last"], "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": true}, "acceptance_ceiling": "release",
+      "allowed_paths": [".github/**", "core/**", "plugin/**", "tools/**", "verification/**", "docs/**", "README.md"], "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "subtasks": [
+        {"id": "regress", "work": "Repeat the complete release matrix with megafauna enabled and disabled.", "touches": ["verification/**", "docs/**"], "done_when": "The optional final system cannot alter established combat results."},
+        {"id": "publish", "work": "Rebuild, fingerprint, document, and archive the final package from a clean exact commit.", "touches": ["plugin/**", "tools/**", "verification/**", "docs/**", "README.md"], "done_when": "Release verification passes and the archive remains proprietary-data safe."}
+      ],
+      "produces": ["Final package", "Final regression/evidence bundle", "Complete install and ownership documentation"],
+      "done_when": "The full Charter is satisfied on CrossOver and every claim is backed by exact-commit evidence."
     }
   ]
 }

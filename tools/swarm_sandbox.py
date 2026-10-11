@@ -51,8 +51,29 @@ def load_manifest(path: Path = DEFAULT_MANIFEST) -> dict[str, Any]:
 
 
 def validate_manifest(manifest: dict[str, Any]) -> None:
-    if manifest.get("schema_version") != 1:
+    if manifest.get("schema_version") != 2:
         raise SandboxError("unsupported swarm manifest schema")
+    phases = manifest.get("phases")
+    if not isinstance(phases, list) or not phases:
+        raise SandboxError("swarm manifest must define phases")
+    phase_ids: set[str] = set()
+    phase_orders: set[int] = set()
+    for phase in phases:
+        if not isinstance(phase, dict):
+            raise SandboxError("every swarm phase must be an object")
+        phase_id = phase.get("id")
+        if not isinstance(phase_id, str) or not TASK_ID.fullmatch(phase_id):
+            raise SandboxError(f"invalid swarm phase id: {phase_id!r}")
+        if phase_id in phase_ids:
+            raise SandboxError(f"duplicate swarm phase id: {phase_id}")
+        phase_ids.add(phase_id)
+        order = phase.get("order")
+        if not isinstance(order, int) or order < 0 or order in phase_orders:
+            raise SandboxError(f"phase {phase_id} has invalid or duplicate order")
+        phase_orders.add(order)
+        for field in ("title", "gate"):
+            if not isinstance(phase.get(field), str) or not phase[field].strip():
+                raise SandboxError(f"phase {phase_id} has no {field}")
     checks = manifest.get("checks")
     if not isinstance(checks, dict) or not checks:
         raise SandboxError("swarm manifest must define checks")
@@ -79,6 +100,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
             raise SandboxError(f"task {task_id} has no title")
         if not isinstance(task.get("priority"), int) or task["priority"] < 1:
             raise SandboxError(f"task {task_id} has invalid priority")
+        if task.get("phase") not in phase_ids:
+            raise SandboxError(f"task {task_id} has unknown phase {task.get('phase')!r}")
         requirements = task.get("requires")
         if not isinstance(requirements, dict) or set(requirements) != REQUIREMENTS:
             raise SandboxError(f"task {task_id} must declare exactly {sorted(REQUIREMENTS)}")
@@ -100,6 +123,36 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
             raise SandboxError(f"task {task_id} uses unknown checks: {sorted(unknown)}")
         if not isinstance(task.get("done_when"), str) or not task["done_when"].strip():
             raise SandboxError(f"task {task_id} has no completion condition")
+        subtasks = task.get("subtasks")
+        if not isinstance(subtasks, list) or not subtasks:
+            raise SandboxError(f"task {task_id} must define subtasks")
+        subtask_ids: set[str] = set()
+        for subtask in subtasks:
+            if not isinstance(subtask, dict):
+                raise SandboxError(f"task {task_id} has a non-object subtask")
+            subtask_id = subtask.get("id")
+            if not isinstance(subtask_id, str) or not TASK_ID.fullmatch(subtask_id):
+                raise SandboxError(f"task {task_id} has invalid subtask id {subtask_id!r}")
+            if subtask_id in subtask_ids:
+                raise SandboxError(f"task {task_id} has duplicate subtask id {subtask_id}")
+            subtask_ids.add(subtask_id)
+            for field in ("work", "done_when"):
+                if not isinstance(subtask.get(field), str) or not subtask[field].strip():
+                    raise SandboxError(f"task {task_id} subtask {subtask_id} has no {field}")
+            touches = subtask.get("touches")
+            if not isinstance(touches, list) or not touches or not all(
+                isinstance(path, str) and path for path in touches
+            ):
+                raise SandboxError(f"task {task_id} subtask {subtask_id} has invalid touches")
+            if any(not any(fnmatch.fnmatchcase(path, pattern) for pattern in allowed) for path in touches):
+                raise SandboxError(
+                    f"task {task_id} subtask {subtask_id} touches paths outside allowed scope"
+                )
+        produces = task.get("produces")
+        if not isinstance(produces, list) or not produces or not all(
+            isinstance(item, str) and item.strip() for item in produces
+        ):
+            raise SandboxError(f"task {task_id} must define produced artifacts")
 
     for task_id, task in by_id.items():
         dependencies = task.get("depends_on")
@@ -110,6 +163,16 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
             raise SandboxError(f"task {task_id} has missing dependencies: {sorted(missing)}")
         if task_id in dependencies:
             raise SandboxError(f"task {task_id} depends on itself")
+        phase_order = next(phase["order"] for phase in phases if phase["id"] == task["phase"])
+        for dependency in dependencies:
+            dependency_task = by_id[dependency]
+            dependency_order = next(
+                phase["order"] for phase in phases if phase["id"] == dependency_task["phase"]
+            )
+            if dependency_order > phase_order:
+                raise SandboxError(
+                    f"task {task_id} depends on later-phase task {dependency}"
+                )
 
     visiting: set[str] = set()
     visited: set[str] = set()
@@ -168,11 +231,29 @@ def render_prompt(task: dict[str, Any], base: str) -> str:
     allowed = "\n".join(f"- `{pattern}`" for pattern in task["allowed_paths"])
     checks = "\n".join(f"- `{name}`" for name in task["checks"])
     dependencies = ", ".join(task["depends_on"]) or "none"
+    subtasks = "\n\n".join(
+        f"### {index}. `{subtask['id']}`\n\n"
+        f"{subtask['work']}\n\n"
+        f"Touchpoints: {', '.join(f'`{path}`' for path in subtask['touches'])}\n\n"
+        f"Done when: {subtask['done_when']}"
+        for index, subtask in enumerate(task["subtasks"], start=1)
+    )
+    produces = "\n".join(f"- {item}" for item in task["produces"])
     return f"""# Swarm task: {task['id']}
 
 ## Objective
 
 {task['title']}
+
+Phase: `{task['phase']}`
+
+## Subtasks
+
+{subtasks}
+
+## Expected artifacts
+
+{produces}
 
 ## Completion condition
 
@@ -227,6 +308,7 @@ def command_doctor(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
         "status": status,
         "manifest": str(DEFAULT_MANIFEST.relative_to(ROOT)),
         "tasks_total": len(tasks),
+        "phases_total": len(manifest["phases"]),
         "locally_actionable": len(actionable),
         "dump_independent": len(dump_independent),
         "blocked_on_owner_dump": len(blocked_on_dump),
@@ -240,6 +322,7 @@ def command_doctor(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
         print(f"  {len(actionable)}/{len(tasks)} tasks are locally actionable now")
         print(f"  {len(dump_independent)}/{len(tasks)} tasks do not require owner dumps")
         print(f"  {len(blocked_on_dump)}/{len(tasks)} tasks are blocked on owner dumps")
+        print(f"  {len(manifest['phases'])} ordered phases")
         print(f"  tools: {', '.join(f'{name}={value}' for name, value in tools.items())}")
     return 0 if status == "PASS" else 1
 
@@ -251,10 +334,13 @@ def command_list(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
     if args.json:
         print(json.dumps(tasks, indent=2))
         return 0
-    print("ID                               P  DUMP  CEILING  TITLE")
+    print("ID                               P  PHASE                 DUMP  CEILING  TITLE")
     for task in tasks:
         dump = "yes" if task["requires"]["owner_dump"] else "no"
-        print(f"{task['id']:<32} {task['priority']:<2} {dump:<5} {task['acceptance_ceiling']:<8} {task['title']}")
+        print(
+            f"{task['id']:<32} {task['priority']:<2} {task['phase']:<21} "
+            f"{dump:<5} {task['acceptance_ceiling']:<8} {task['title']}"
+        )
     return 0
 
 

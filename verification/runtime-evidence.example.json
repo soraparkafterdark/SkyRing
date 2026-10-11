@@ -30,7 +30,11 @@
     "stamina": false,
     "hit_stop": false,
     "deterministic_logs": false,
-    "timing_within_one_frame": false
+    "timing_within_one_frame": false,
+    "first_person_combat_presentation": false,
+    "third_person_combat_presentation": false,
+    "perspective_toggle_continuity": false,
+    "perspective_timing_geometry_parity": false
   },
   "notes": "Copy this to verification/runtime-evidence.json and replace every placeholder. The verifier rejects false, missing, stale, or hash-mismatched evidence."
 }

@@ -27,10 +27,24 @@ The other tabs explore. This one decides. If anything elsewhere in this doc cont
 | Saving | Skyrim's. No souls-style death, no recovery run |
 | World difficulty | Skyrim's level scaling. No de-levelled regions |
 | Statuses and affinities | Deferred together to a later pass, not dropped |
+| Bows and arrows | In after the shared effect pipeline; bows use committed actions, arrows carry effect payloads, and Skyrim owns projectile flight and impact |
+| Camera perspective | First- and third-person are freely interchangeable, including mid-action; both present the same combat state, movement, timing, and geometry |
 | Target platform | Skyrim SE via CrossOver on the M2 Pro; Windows kept as a build machine |
 | Architecture | One extractor, one game-agnostic IR, two backends |
 
 Shouts get an extra line because the decision has two halves. **The system stays exactly as it is:** cooldown-based, free, no catalyst, no magicka, usable regardless of what is held or worn. A Dragonborn stripped naked in a dungeon can still shout. **But the numbers become reachable:** the Dragon tree carries perks that modify shout damage, duration and cooldown, because shouts are the only thing in Skyrim with no progression attached at all, and that is a bigger hole than Block or Alteration. Perks move the numbers; nothing gates the ability.
+
+Perspective gets the same hard boundary. **There is one combat simulation, not
+a first-person mode and a third-person mode.** Changing view never restarts an
+action, changes root motion, reopens a hit window, grants i-frames, clears a
+buffered input, or changes a target. Third-person shows the retargeted
+full-body animation. First-person shows a corrected arms-and-weapon
+presentation driven by the same action clock while the authoritative
+full-body action continues. Elden Ring has no first-person camera to copy, so
+fidelity here means identical movement, commitment, timing, and hit geometry,
+not attaching the camera to the animated head. The first-person horizon stays
+stable through rolls and knockdowns unless the player explicitly enables a
+more physical camera option.
 
 ## Out of scope
 
@@ -41,8 +55,6 @@ Each of these came up in an earlier tab, each is defensible, and each would eat 
 **Porting Elden Ring's damage model.** Motion values, attack rating, defence formulas, scaling curves. Importing any of it coherently means importing all of it, and then you have replaced Skyrim rather than integrated with it. This is the most likely way the project quietly becomes unfinishable.
 
 **Extracting enemy behaviour.** The sandbox does not do it and its dummy's attacks are invented. Real enemy telegraphs are a separate project. For now: hand-author a handful of enemies properly rather than approximating all of them.
-
-**Archery.** Sits awkwardly between combat and magic, no decision needed yet, and it will get designed by accident if it is not explicitly parked. Parked.
 
 **Enchanting as a competing progression.** Flagged as an open question in the magic tab and now answered by exclusion: enchanting is not redesigned in this project. If it later needs to host the affinity system it can, but not in any phase below.
 
@@ -56,13 +68,23 @@ Before adding anything, ask: **does this change what happens in the three second
 
 ### Deferred, not dropped
 
-Two systems are worth building and are explicitly not being built yet, because they are coupled to each other and neither is coupled to anything in the phases below.
+Two systems are worth building and are explicitly deferred until the melee
+core and its balance policy are proven. They are coupled to each other and do
+not belong in the first vertical slice.
 
 **Status buildup.** Bleed, frostbite, rot, poison, sleep, madness as invisible meters rather than Skyrim's flat weak effects. This is what turns weapon choice into a decision rather than a damage comparison, and it is the thing that would finally give Alchemy a combat job. Until it lands, status effects stay strictly Skyrim's.
 
 **Affinities.** Elden Ring's infusion system — Heavy, Keen, Sacred, Cold, Bleed and the rest — which is the elegant fix for enchanting being Skyrim's most broken system. It depends on statuses existing, so it waits for them.
 
 Both get tuned in once the combat core is real and there is something to tune against. Filing them here rather than under out-of-scope because the distinction matters: these are postponed, not rejected.
+
+**Archery.** Bows land with this pass because effect-bearing ammunition is the
+smallest useful proof that the shared pipeline really is delivery-neutral. A
+bow is still a weapon: Skyrim's Archery skill, perks, bow and arrow base
+damage, inventory, and normal projectile impact remain authoritative. SkyRing
+owns the draw, release, recovery, movement commitment, stamina, and the
+elemental/status payload attached to the arrow. Bows do not use catalysts or
+magicka, and arrows do not get a separate effect engine.
 
 **Rejected outright:** a drinking animation. Elden Ring's committed flask creates real tension and it would cost the thing that makes Skyrim combat recoverable — the instant top-up in a pinch is good UX and it stays.
 
@@ -120,7 +142,8 @@ Every Elden Ring system needs somewhere for the player to invest in it, and Skyr
 | **Smithing** | Smithing stones for every weapon, staff and ring | Healthy | Replaces tempering; stone tier sets the ceiling, not the skill |
 | **Alchemy** | Greases and combat consumables | Healthy | Stays thin until statuses land — that is what gives it a real job |
 | **Sneak** | Backstab criticals, riposte damage on stance break | Healthy |  |
-| Archery · Enchanting · Lockpicking · Pickpocket · Speech | — | — | Untouched this project |
+| **Archery** | Bow action commitment, stance pressure, effect-arrow efficiency | Healthy | Skyrim still owns skill scaling, perks, bow/arrow damage, and projectile flight |
+| Enchanting · Lockpicking · Pickpocket · Speech | — | — | Untouched this project |
 
 **The one new tree: Dragon.** Two branches — Dragon Communion (breath and transformation, bought with dragon souls) and Dragon Cult (lightning, taught by Dragon Priests) — plus a third branch of perks that modify shouts without gating them. Designed in full on the Magic overhaul tab.
 
@@ -144,7 +167,7 @@ Four additions beyond poise, stance and the magic work. What unites them is that
 
 Skyrim's killmove animations already exist and are currently random cosmetic noise — common enough that people install mods to suppress them. Elden Ring's critical is the same animation with one difference: you earned it.
 
-So the killmoves are not replaced, they are **retargeted**. They stop firing on a damage roll and start firing on a stance break. The animations are already in the game, the stance system is already being built in Phase 2, and the wiring between them is the entire change. A dead feature becomes the payoff for the whole poise-and-stance loop, and Sneak gets somewhere worth investing.
+So the killmoves are not replaced, they are **retargeted**. They stop firing on a damage roll and start firing on a stance break. The animations are already in the game, the stance system is already being built in Phase 4, and the wiring between them is the entire change. A dead feature becomes the payoff for the whole poise-and-stance loop, and Sneak gets somewhere worth investing.
 
 ### Smithing stones for everything
 
@@ -187,31 +210,37 @@ Each phase has a stop condition. If a phase cannot meet it, that is information 
 
 **Phase 0 — Native sandbox.** Swap the Oodle dependency or bake the data on Windows; get an aarch64 build of the Bevy sandbox running on the M2 Pro. *Done when:* `cargo run` works natively and the demo plays through.
 
-**Phase 1 — The colossal sword slice.** Geometry, timings, root motion, i-frames, hit-stop. One weapon class, end to end, through the IR and into Skyrim. *Done when:* a swing in Skyrim and the same swing in the sandbox agree on every window to within one frame, with no hand-tuning.
+**Phase 1 — The colossal sword slice.** Geometry, timings, root motion, i-frames, hit-stop. One weapon class, end to end, through the IR and into Skyrim. *Done when:* the action works in first- and third-person, switching view during a swing or roll does not alter combat state, and Skyrim and the sandbox agree on every window to within one frame, with no hand-tuning.
 
-**Phase 2 — Poise, stance and ripostes.** The two interruption systems kept separate, with Heavy Armor and Block perks behind them, and Skyrim's killmoves retargeted to fire on a stance break. *Done when:* a heavy-armour build can trade through a hit to finish a swing and a light build cannot, and a killmove only ever plays because the player broke something.
+**Phase 2 — Action and armament balance.** Put each action role inside a tested envelope for commitment, stamina, reach, damage, stance pressure, and buildup rate; enforce the 1.15x armament cap. *Done when:* the harness rejects a deliberately dominant action or over-cap armament and reports why.
 
-**Phase 3 — The gear axis.** Smithing stones replacing tempering across every weapon, staff and ring; catalyst quality values; spells converted to power ratios. *Done when:* a mage played from level 1 to 30 does not hit the wall, and a named weapon is still worth carrying at level 40. Cheapest test of the largest unproven assumption in the project, and it needs no toolchain.
+**Phase 3 — Shared consequences.** Elemental channels, buffs/debuffs, status buildup, and affinities use one delivery-neutral contract. *Done when:* one melee action can independently apply an element, a buildup status, and a timed modifier without bypassing Skyrim's native damage and resistance path.
 
-**Phase 4 — Catalysts proper.** Rings as hand-dedicating catalysts, staves rebuilt from charged items, powerstancing, passives. *Done when:* two rings with different passives produce a meaningfully different build from one ring.
+**Phase 4 — Poise, stance and ripostes.** The two interruption systems kept separate, with Heavy Armor and Block perks behind them, and Skyrim's killmoves retargeted to fire on a stance break. *Done when:* a heavy-armour build can trade through a hit to finish a swing and a light build cannot, and a killmove only ever plays because the player broke something.
 
-**Phase 5 — New spell content.** Gravity into Alteration, summoning into Conjuration, the Elden Ring archetypes Skyrim's vocabulary lacks. *Done when:* Alteration is a school someone would choose on purpose.
+**Phase 5 — Bow delivery.** One longbow uses committed draw, release, and recovery actions; physical, elemental, and buildup arrows all travel and collide through Skyrim before entering the shared consequence path. *Done when:* outgoing impacts resolve once, incoming arrows respect dodge/block, and deterministic logs correlate each release to its impact in CrossOver.
 
-**Phase 6 — Enemy symmetry.** Rule symmetry first, then pathing, then aggression values. Hand-authored telegraphs only if the slice proves they are needed. *Done when:* an enemy attack can be read and punished the way a player's can.
+**Phase 6 — The gear axis.** Smithing stones replacing tempering across every weapon, staff and ring; catalyst quality values; spells converted to power ratios. *Done when:* a mage played from level 1 to 30 does not hit the wall, and a named weapon is still worth carrying at level 40. Cheapest test of the largest unproven assumption in the project, and it needs no toolchain.
 
-**Phase 7 — Torrent.** Summon, double jump, stagger immunity, its own health, mounted movesets. *Done when:* mounted combat is something you choose rather than something you survive.
+**Phase 7 — Catalysts proper.** Rings as hand-dedicating catalysts, staves rebuilt from charged items, powerstancing, passives. *Done when:* two rings with different passives produce a meaningfully different build from one ring.
 
-Torrent is numbered last but blocks nothing and is blocked by nothing — it touches no framework the other phases touch. If the animation work is the part that sounds fun on a given weekend, do it then. Statuses and affinities come after all of this, together.
+**Phase 8 — New spell content.** Gravity into Alteration, summoning into Conjuration, the Elden Ring archetypes Skyrim's vocabulary lacks. *Done when:* Alteration is a school someone would choose on purpose.
+
+**Phase 9 — Enemy symmetry.** Rule symmetry first, then pathing, then aggression values. Hand-authored telegraphs only if the slice proves they are needed. *Done when:* an enemy attack can be read and punished the way a player's can.
+
+**Phase 10 — Torrent.** Summon, double jump, stagger immunity, its own health, mounted movesets. *Done when:* mounted combat is something you choose rather than something you survive.
+
+Torrent is numbered last but blocks nothing and is blocked by nothing — it touches no framework the other phases touch. If the animation work is the part that sounds fun on a given weekend, do it then.
 
 ### What to do this week
 
-Phase 0, and nothing else. It is the only phase with no design questions left in it, and until the sandbox runs natively every other phase is theory.
-
-Phases 1 and 3 are independent of each other and both independent of the ring design, so if Phase 0 stalls on the Oodle question, Phase 3 is the one to start instead — it is pure record editing, needs no toolchain, and tests the largest unproven assumption in the project.
+Finish the Phase 1 CrossOver slice before beginning the bow adapter. The
+delivery-neutral consequence and correlation types may be designed and tested
+natively now, but bow runtime hooks do not jump the queue ahead of melee.
 
 ## Encounters
 
-**Phase 8 — Authored encounters.** Elden Ring bosses placed into Skyrim, built on top of the symmetry work in Phase 6. The principle from the enemy section still holds: an imported boss that does not play by the new rules is a reskinned Draugr Deathlord, so none of this starts before Phase 6 is real.
+**Phase 11 — Authored encounters.** Elden Ring bosses placed into Skyrim, built on top of the symmetry work in Phase 9. The principle from the enemy section still holds: an imported boss that does not play by the new rules is a reskinned Draugr Deathlord, so none of this starts before Phase 9 is real.
 
 ### Encounter 1 — Bleak Falls Barrow (priority)
 

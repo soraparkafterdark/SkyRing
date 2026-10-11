@@ -17,7 +17,9 @@ The first proof is one complete colossal-sword vertical slice against one test
 actor. It is complete only when input, collision-preserving movement,
 animation, outgoing contact, incoming dodge/block resolution, Skyrim-native
 damage, stamina, hit-stop, deterministic logs, and one-frame timing agreement
-all work in the CrossOver runtime.
+all work in first- and third-person in the CrossOver runtime. Switching
+perspective during an action must preserve its identity, phase, movement, hit
+geometry, stamina, i-frames, buffered input, and resolved contacts.
 
 ## Mandatory order and product decisions
 
@@ -26,9 +28,11 @@ all work in the CrossOver runtime.
 3. Tune action and armament balance.
 4. Integrate elements, statuses, buffs, and debuffs.
 5. Integrate poise and stance as separate systems.
-6. Only then implement magic delivery.
-7. Add breadth and compatibility after the slices are proven.
-8. Megafauna is last and must never block combat work.
+6. Prove shared ranged delivery with one bow and physical, elemental, and
+   buildup arrows; Skyrim remains authoritative for projectile flight and hit.
+7. Only then implement magic delivery on that ranged/effect foundation.
+8. Add breadth and compatibility after the slices are proven.
+9. Megafauna is last and must never block combat work.
 
 - Consumables remain instant and animation-less. Revisit committed item-use
   animation only when throwables are implemented.
@@ -38,6 +42,8 @@ all work in the CrossOver runtime.
   weapons. Acquisition is the only access gate; progression may improve
   results but never eligibility.
 - Do not port Elden Ring's absolute damage, HP, defence, or scaling model.
+- Keep perspective out of combat state. First- and third-person animation and
+  cameras are presentations of one authoritative action clock and geometry.
 - Do not commit generated Elden Ring data, animations, sound, or other derived
   proprietary assets.
 

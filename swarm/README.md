@@ -4,6 +4,10 @@ This directory defines bounded tasks that coding agents can attempt without
 sharing a mutable checkout. It is an implementation harness, not a claim that
 parallel agents can replace source data or runtime testing.
 
+The complete phase graph and target interfaces are documented in
+[`docs/EXECUTION_PLAN.md`](../docs/EXECUTION_PLAN.md). `tasks.json` is schema
+version 2 and is the machine-readable source for worker prompts.
+
 ## Safety model
 
 - One task gets one detached Git worktree and one immutable base commit.
@@ -13,6 +17,10 @@ parallel agents can replace source data or runtime testing.
   merge itself.
 - Every task declares its maximum defensible acceptance level. Synthetic work
   never claims source or release completion.
+- The manifest orders work into product phases. Every task contains bounded
+  subtasks, concrete code touchpoints, expected artifacts, dependencies, and a
+  machine-checked completion condition; generated worker prompts include all
+  of them.
 
 Inspect the environment and current task pool:
 

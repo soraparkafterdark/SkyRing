@@ -21,6 +21,10 @@ The combat logic is the engine-free simulation from
   doors, loot and dialogue keep working mid-fight.
 - **I-frames come from the core's real roll timings.** They're set through the
   `bIframeActive` / `bInIframe` graph variables.
+- **First- and third-person are interchangeable, including during actions.**
+  Both views present the same live action clock, root motion, i-frames, stamina,
+  and hit geometry. The first-person camera keeps a stable horizon through
+  rolls by default; changing view never restarts or cancels combat state.
 
 ## Layout
 
@@ -31,6 +35,7 @@ The combat logic is the engine-free simulation from
 | `plugin/` | The SKSE plugin (C++, CommonLibSSE-NG). It hooks the player's update, reads input and plays the core's actions. |
 | `plugin/dist/` | What goes in the mod archive: `SKSE/Plugins/ERCombat.dll`, `er_combat_core.dll` and `ERCombat.ini`. |
 | `architecture.md` | The implementation contract, ownership boundaries, and build order. |
+| `docs/EXECUTION_PLAN.md` | The zero-to-hero phase graph, target code contracts, dump handoff, and swarm merge protocol. |
 
 ## Building (Windows)
 
@@ -111,6 +116,7 @@ acceptance assertion. The operational rules for coding agents are in
 - [x] Core sweep/native Skyrim melee-hit reconciliation (diagnostic opt-in)
 - [x] macOS contract verification and Windows SKSE compile CI
 - [x] SKSE bridge scaffold: combat mode, input, action → animation event, i-frames
+- [ ] Synchronized first-/third-person animation presentation and mid-action switching
 - [ ] First in-game build and test on 1.6.1170
 - [ ] Lock-on target from True Directional Movement
 - [ ] Gamepad bindings

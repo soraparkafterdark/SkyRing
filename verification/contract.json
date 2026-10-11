@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "project": "SkyRing",
-  "end_goal": "Elden Ring-style action commitment and combat geometry integrated into Skyrim SE/AE, with Skyrim retaining RPG authority, accepted in CrossOver on Apple Silicon.",
+  "end_goal": "Elden Ring-style action commitment and combat geometry integrated into Skyrim SE/AE with interchangeable first- and third-person presentation, Skyrim retaining RPG authority, accepted in CrossOver on Apple Silicon.",
   "authority_order": [
     "Charter.md",
     "architecture.md",
@@ -49,7 +49,11 @@
     "stamina",
     "hit_stop",
     "deterministic_logs",
-    "timing_within_one_frame"
+    "timing_within_one_frame",
+    "first_person_combat_presentation",
+    "third_person_combat_presentation",
+    "perspective_toggle_continuity",
+    "perspective_timing_geometry_parity"
   ],
   "non_goals": [
     "port_elden_ring_absolute_damage",
@@ -62,7 +66,8 @@
     "skyrim_owns_absolute_damage": true,
     "native_confirmation_requires_matching_contact": true,
     "all_weapons_unconditionally_wieldable": true,
-    "poise_and_stance_are_separate": true
+    "poise_and_stance_are_separate": true,
+    "perspective_independent_combat_state": true
   },
   "generated_owner_data": {
     "action_table": "core/src/sim/extracted.rs",

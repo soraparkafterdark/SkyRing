@@ -17,7 +17,7 @@ class SwarmSandboxTests(unittest.TestCase):
 
     def test_manifest_has_actionable_and_honestly_blocked_work(self):
         tasks = self.manifest["tasks"]
-        self.assertGreaterEqual(sum(map(swarm_sandbox.task_is_locally_actionable, tasks)), 8)
+        self.assertGreaterEqual(sum(map(swarm_sandbox.task_is_locally_actionable, tasks)), 6)
         self.assertTrue(any(task["requires"]["owner_dump"] for task in tasks))
         self.assertTrue(any(task["acceptance_ceiling"] == "release" for task in tasks))
 
@@ -32,6 +32,25 @@ class SwarmSandboxTests(unittest.TestCase):
         manifest = copy.deepcopy(self.manifest)
         manifest["tasks"][0]["checks"] = ["not-a-check"]
         with self.assertRaisesRegex(swarm_sandbox.SandboxError, "unknown checks"):
+            swarm_sandbox.validate_manifest(manifest)
+
+    def test_unknown_phase_is_rejected(self):
+        manifest = copy.deepcopy(self.manifest)
+        manifest["tasks"][0]["phase"] = "not-a-phase"
+        with self.assertRaisesRegex(swarm_sandbox.SandboxError, "unknown phase"):
+            swarm_sandbox.validate_manifest(manifest)
+
+    def test_empty_subtasks_are_rejected(self):
+        manifest = copy.deepcopy(self.manifest)
+        manifest["tasks"][0]["subtasks"] = []
+        with self.assertRaisesRegex(swarm_sandbox.SandboxError, "must define subtasks"):
+            swarm_sandbox.validate_manifest(manifest)
+
+    def test_later_phase_dependency_is_rejected(self):
+        manifest = copy.deepcopy(self.manifest)
+        first = manifest["tasks"][0]
+        first["depends_on"] = [manifest["tasks"][-1]["id"]]
+        with self.assertRaisesRegex(swarm_sandbox.SandboxError, "later-phase"):
             swarm_sandbox.validate_manifest(manifest)
 
     def test_scope_matching_is_path_normalized(self):
@@ -56,6 +75,8 @@ class SwarmSandboxTests(unittest.TestCase):
         self.assertIn("Do not push", prompt)
         self.assertIn("Maximum defensible claim", prompt)
         self.assertIn(task["done_when"], prompt)
+        self.assertIn(task["subtasks"][0]["work"], prompt)
+        self.assertIn(task["produces"][0], prompt)
 
     def test_unsafe_workspace_targets_are_rejected(self):
         with self.assertRaisesRegex(swarm_sandbox.SandboxError, "unsafe workspace"):

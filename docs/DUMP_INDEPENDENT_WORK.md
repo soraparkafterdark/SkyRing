@@ -36,15 +36,17 @@ but none needs Elden Ring files to reach a reviewable, Windows-compiled state.
 
 ## Honest estimate
 
-The swarm manifest currently contains fourteen bounded implementation or
-acceptance tasks. Eleven are dump-independent and locally actionable
-without either game running. That is roughly three quarters of the identified
-task surface, not three quarters of the remaining effort: animation retargeting
-and CrossOver validation are fewer tasks but carry disproportionate risk.
+The zero-to-hero swarm manifest contains thirty-three bounded implementation
+or acceptance tasks across seventeen ordered phases. Eighteen tasks do not
+directly consume owner dumps; six currently require neither owner data nor a
+game runtime. Dependencies still govern preparation, so these counts are an
+inventory, not permission to run all matching tasks at once.
 
 A useful planning range is:
 
-- **70–80% of remaining code and harness work** can proceed before extraction.
+- **The foundation and several bridge boundaries** can proceed before
+  extraction; source validation, animation work, and every honest end-to-end
+  fidelity claim still wait for the dump.
 - **About half of ship risk** can be retired without the dump, because exact
   animation fidelity and real-runtime integration remain the hardest proof.
 - **0% of source or release acceptance** can honestly pass until owner data is
@@ -53,4 +55,5 @@ A useful planning range is:
 `swarm/tasks.json` is the machine-readable backlog and
 `tools/swarm_sandbox.py` creates isolated worktrees, renders task prompts,
 enforces path scopes, runs required checks, and records a claim ceiling for
-each result.
+each result. `docs/EXECUTION_PLAN.md` is the human-readable code and merge
+contract for the same graph.

@@ -3,7 +3,7 @@
 **Aim**
 - **Act as:** Skyrim SKSE plugin developer
 - **Input:** the MIT-licensed combat core from [Funny-Bones/ELDEN-RING-Combat-Rewrite](https://github.com/Funny-Bones/ELDEN-RING-Combat-Rewrite), Skyrim SE/AE, and the Gate to Sovngarde modlist (GTS)
-- **Mission:** play Skyrim with Elden Ring movement and combat in third person, while doors, loot, NPCs, menus and the rest of Gate to Sovngarde keep working
+- **Mission:** play Skyrim with Elden Ring movement and combat in interchangeable first- and third-person, while doors, loot, NPCs, menus and the rest of Gate to Sovngarde keep working
 
 "GTS" is **Gate to Sovngarde**, the Wabbajack modlist Joel has installed. We target its exact game version and play alongside its combat, camera and HUD mods.
 
@@ -69,6 +69,10 @@ The general rules are:
 - **Same game version.** We build against the Skyrim and SKSE version the list pins, using CommonLibSSE-NG.
 - **One owner per job while combat mode is on.** Our plugin owns movement, dodging, attacks and lock-on. Anything else in the list that does those jobs (directional movement or lock-on such as TDM, attack and combo frameworks such as MCO/BFCO, dodge mods, weapon-collision mods such as Precision) gets paused, or bypassed by ours, only while combat mode is on. When the weapon is sheathed, the list plays exactly as before.
 - **Keep the list's camera and HUD where we can.** If SmoothCam is in the list, we feed it the lock-on target rather than replacing the camera. If TrueHUD is in the list, we show stamina and the lock-on marker through it.
+- **One action across both perspectives.** The core never branches on camera
+  mode. Third-person and first-person presentations share the action clock;
+  toggling view mid-action cannot restart movement, timing, i-frames, stamina,
+  hit geometry, or contact state.
 - **Damage goes through Skyrim.** Hits use Skyrim's normal hit and damage path, so the list's perks, difficulty settings, enemy AI and gore keep working.
 - **A shareable patch.** We ship this as a separate mod plus a small patch for Gate to Sovngarde, so nothing in the Wabbajack install itself gets edited.
 
@@ -76,6 +80,10 @@ The general rules are:
 
 This decides what we can share publicly.
 - **Personal setup, same as the repo (default).** We ship tools, not animations. Each player runs our converter on their own Elden Ring copy, and it retargets the animations onto Skyrim's skeleton and writes `.hkx` files. Nothing from Elden Ring goes up on Nexus, just as the original repo ships no game data.
+- **First-person derivation.** Elden Ring has no first-person source camera.
+  The converter/adapter therefore derives a corrected arms-and-weapon view
+  from the same action, while the authoritative full-body animation continues
+  and the camera follows collision-preserved movement with a stable horizon.
 - **Shareable fallback.** If a player doesn't own Elden Ring, the core drives Skyrim combat animation packs (MCO/BFCO) through Open Animation Replacer. It looks less exact but needs no Elden Ring files.
 
 ## 5. Build order
@@ -84,7 +92,9 @@ This decides what we can share publicly.
 2. **Bridge v0: movement only.** Walk, run, sprint, roll and backstep, using Skyrim's existing animations.
 3. **Overworld rules.** Combat mode only while a weapon is drawn, plus activate passthrough.
 4. **Combat.** Light, heavy and charged attacks with real hit detection against Skyrim NPCs, plus stamina, guarding and hit-stop.
-5. **Lock-on and camera.** Ideally this plays nicely with SmoothCam, or replaces it.
+5. **Perspective, lock-on and camera.** Synchronize first- and third-person
+   presentations, preserve actions across Skyrim's normal view toggle, and
+   integrate third-person lock-on with SmoothCam where available.
 6. **Animation converter.** Elden Ring animations retargeted to Skyrim's skeleton as `.hkx`.
 7. **Gate to Sovngarde pass.** The rules from section 3, tested in Joel's installed list.
 

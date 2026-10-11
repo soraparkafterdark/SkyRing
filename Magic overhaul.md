@@ -169,13 +169,21 @@ Once spells carry a family tag, the catalyst passives from the real roster becom
 
 Map those families onto the combined library and you get the build space for free: a gravity staff wants Alteration spells, a black flame ring wants a specific Destruction subset, a Dragon Communion ring wants Conjuration. The player assembles a build by picking a family and then hunting the catalyst that boosts it, which is exactly the loop Elden Ring runs and exactly the loop Skyrim's magic has never had.
 
-## Open questions
+## Remaining decisions
 
-Five things the rule does not settle. Each is a real fork and I would rather flag them than pick quietly.
+Three real forks remain. The archery and shout boundaries are recorded here
+too because they constrain the magic implementation even though they are
+settled.
 
 **What governs Scaling, when Skyrim has no Intelligence or Faith?** Three options. Use the existing school skills, which is least disruptive but means a Destruction mage's staff and ring scale off different bars. Add two derived stats behind the scenes, which is cleanest and most Elden Ring but needs UI work. Or scale off Magicka investment, which is simple and makes every mage identical. I lean toward school skills for the first pass because it costs nothing and you can revisit once you know how it plays.
 
-**Does archery go with this?** Elden Ring treats bows as a weapon class with Ashes of War, Skyrim treats them as a skill, and you have said nothing about them. They sit awkwardly between the combat layer and the magic layer and they will need a decision eventually. Not urgent, but do not let them get designed by accident.
+**Archery — settled beside magic, not inside it.** Bows are committed weapon
+actions governed by Skyrim's Archery progression; arrows are payload carriers
+for the shared elemental and status pipeline. Skyrim remains authoritative for
+projectile flight, collision, bow/arrow base damage, inventory, and perks.
+SkyRing owns draw/release/recovery timing and correlates the released arrow to
+one confirmed impact. The bow slice should prove this ranged adapter before
+projectile spells reuse it, but bows never require a catalyst or magicka.
 
 **Shouts — settled, and the answer is nothing.** They stay exactly as they are: vanilla behaviour, vanilla cooldowns, usable regardless of what is held or worn. No catalyst, no magicka, no scaling. The governing rule appeared to break here, but only because shouts are a story reward wearing combat clothes — there is nothing on the Elden Ring side of the comparison to weigh against.
 
