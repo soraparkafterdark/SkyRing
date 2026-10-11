@@ -12,6 +12,7 @@ The other tabs explore. This one decides. If anything elsewhere in this doc cont
 | What does not | Damage model, HP, armour, stat curves |
 | Who owns progression | Skyrim — skills, perks, levelling, entirely |
 | Who owns gear quality | The Elden Ring axis — catalysts and armaments as a second lever |
+| Weapon requirements | None — every character can equip and fully use every weapon |
 | Poise and stance | Two separate systems, always |
 | Critical ripostes | Skyrim's killmoves, retargeted to fire on a stance break instead of at random |
 | Shouts | Mechanically untouched; Dragon tree perks may modify their numbers |
@@ -77,6 +78,13 @@ Two tabs in this doc disagreed about scaling and you were right to catch it. The
 | Gear quality | **Elden Ring shape** | How strong the implement is | Which catalyst or armament, and its upgrade level |
 
 Skyrim already has both axes for melee: a sword's damage comes from the weapon plus One-Handed plus perks, and nobody finds that confusing. Skyrim's magic is broken precisely because it has only the first axis — Destruction has perks but the spell's number never moves, so the mage stops growing while the warrior keeps finding better swords.
+
+**Neither axis is an eligibility gate.** Elden Ring's Strength, Dexterity,
+Intelligence, Faith, and Arcane requirements do not transfer. A fresh
+character may equip, one-hand or two-hand, and use any armament they acquire
+with its complete moveset and skill. Skyrim skills and perks may improve the
+result, and smithing stones may improve gear quality, but falling below a
+number never disables the weapon, weakens its moveset, or imposes a penalty.
 
 So the fix is not to import Elden Ring's scaling system. It is to **give magic the gear axis that melee already has**, and let Skyrim's perks keep doing the progression job they already do. That is a smaller change than the magic tab implied, it does not touch the damage model, and it is consistent with the integration plan's refusal.
 
@@ -221,7 +229,11 @@ The Castle Morne fight, staged in the word wall chamber of Skyrim's second main-
 - Drops the **Grafted Blade Greatsword** — real stats from the items tab: Str 40 / Dex 14, 21.0 weight, Oath of Vengeance.
 - The word wall stays exactly where it is. Shouts are untouched and this encounter does not change that.
 
-**The weapon is unusable and that is the point.** Grafted Blade needs 40 Strength. At Bleak Falls Barrow the player has nothing like it, so they carry a colossal sword around for twenty hours before they can lift it. That is precisely what Elden Ring does at Castle Morne, and it is one of the best feelings the game produces — a trophy that is also a promise.
+**The weapon is usable immediately.** Grafted Blade's 40 Strength requirement
+does not transfer. Beating an intentionally difficult early boss earns an
+immediate toy, not an inventory promise. Its late-game identity comes from
+colossal commitment, stamina cost, its somber upgrade track, and a bounded
+armament bonus—not an attribute gate.
 
 **Do not break the main quest.** The draugr in that chamber carries the Dragonstone, which Farengar needs. Leonine has to drop it, or it has to be placed in the chamber. This is the kind of detail that is trivial to handle and ruinous to forget.
 

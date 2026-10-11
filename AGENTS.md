@@ -34,6 +34,9 @@ all work in the CrossOver runtime.
   animation only when throwables are implemented.
 - Imported armaments may be fun-biased but never exceed the documented 1.15x
   cap without a Charter change and regression evidence.
+- Never add attribute, skill, level, perk, grip, or moveset requirements to
+  weapons. Acquisition is the only access gate; progression may improve
+  results but never eligibility.
 - Do not port Elden Ring's absolute damage, HP, defence, or scaling model.
 - Do not commit generated Elden Ring data, animations, sound, or other derived
   proprietary assets.

@@ -36,6 +36,7 @@ may later introduce a committed use animation.
 | World collision, targets, actors, animation graph | SKSE bridge/Skyrim | Never simulated in parallel |
 | Base weapon damage, health, armour, difficulty | Skyrim | Use the normal hit path |
 | Skills, perks, levels, saves, quests | Skyrim | No parallel character sheet |
+| Weapon eligibility | unconditional | No stat, skill, level, grip, or moveset lockouts |
 | Action damage multiplier | SkyRing balance policy | Bounded translation, not ER attack rating |
 | Armament quality bonus | SkyRing configuration | Applied once and capped |
 | Elemental resistance and persistent effects | shared effect pipeline + Skyrim | One path for melee, magic, and throwables |
@@ -165,6 +166,11 @@ invalidating Skyrim's loot and progression.
   full numeric bonus.
 - No shipped configuration may exceed the cap without an explicit Charter
   change and a regression fixture demonstrating why.
+- Armament requirements are discarded at translation. Strength, Dexterity,
+  Intelligence, Faith, Arcane, Skyrim skill levels, character level, and perk
+  ownership must never decide whether a weapon can be equipped or whether its
+  full moveset and skill function. Those values may scale results only where
+  Skyrim already owns that progression.
 
 “Comparable” means the same upgrade tier, weapon class, character skill, and
 perk state. We do not compare a finished legendary weapon to an untempered
