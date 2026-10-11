@@ -98,11 +98,11 @@ namespace CombatMath
             const float distanceSquared =
                 SegmentDistanceSquared(swing.sweep_a[step], swing.sweep_b[step], target.a, target.b);
             if (distanceSquared < result.distance * result.distance) {
-                result.step = step;
                 result.distance = std::sqrt(distanceSquared);
             }
-            if (distanceSquared <= thresholdSquared) {
+            if (!result.hit && distanceSquared <= thresholdSquared) {
                 result.hit = true;
+                result.step = step;
             }
         }
         return result;

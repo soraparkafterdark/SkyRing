@@ -16,7 +16,9 @@ namespace CombatMath
     struct SweepContact
     {
         bool hit = false;
+        // Earliest temporal sample that intersects the target.
         std::size_t step = 0;
+        // Closest centreline distance across the complete sweep.
         float distance = 0.0f;
     };
 

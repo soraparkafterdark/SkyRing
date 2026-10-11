@@ -225,6 +225,7 @@ def check_bridge_geometry(cxx: str, temporary: Path) -> str:
             str(ROOT / "core" / "include"),
             "-I",
             str(ROOT / "plugin" / "src"),
+            str(ROOT / "plugin" / "src" / "BridgePlan.cpp"),
             str(ROOT / "plugin" / "src" / "CombatMath.cpp"),
             str(ROOT / "plugin" / "tests" / "CombatMathTests.cpp"),
             "-o",
@@ -232,7 +233,7 @@ def check_bridge_geometry(cxx: str, temporary: Path) -> str:
         ]
     )
     run([str(executable)])
-    return "native weapon-sweep/capsule tests passed with warnings as errors"
+    return "native bridge target/movement/geometry tests passed with warnings as errors"
 
 
 def check_balance_model() -> str:
