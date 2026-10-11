@@ -19,7 +19,7 @@ Split every magic subsystem by where the player encounters it. If they meet it m
 | Dual-wield casting | Two catalysts, passives stack | Dual-cast for 2.2× | Mid-fight | **Elden Ring** — catalyst powerstancing |
 | Loadout limit | Memory slots, set at grace | Unlimited spellbook | At a menu | **Skyrim** — hands already limit you |
 | Spell acquisition | Found and bought as items | Tomes, trainers, levelling | Out of fight | **Skyrim** |
-| Stat requirements | Int / Fai gates | Skill level gates | At level-up | **Skyrim's stats, Elden Ring's gating** |
+| Stat requirements | Int / Fai gates | Skill level gates | At level-up | **No gates** — skills scale results only |
 | Staff behaviour | Catalyst | Charged spell-dispenser | Mid-fight | **Elden Ring** — rebuild vanilla staves |
 
 Two of those deserve the reasoning spelled out, because they are the ones where the obvious Elden Ring answer is wrong.
@@ -61,13 +61,17 @@ This is the single largest piece of record-editing work in the overhaul and it i
 
 ### The catalyst record
 
-Every catalyst, staff or ring, carries exactly three things. The roster in the legendary items tab is already the design template — twenty staves and twelve seals, each distinguished by precisely this shape:
+Every catalyst, staff or ring, carries exactly two gameplay properties. The roster in the legendary items tab is still the design template — twenty staves and twelve seals — but its source-game requirements are evidence only and are discarded by the Skyrim translator:
 
 1. **A Scaling value** — derived, drives all spell power cast from it.
-2. **Requirements** — the skill levels below which it scales badly or not at all.
-3. **At most one passive** — a named spell family boosted by a stated percentage, or nothing.
+2. **At most one passive** — a named spell family boosted by a stated percentage, or nothing.
 
-That third constraint matters. Elden Ring's catalysts are memorable because each does one thing: Meteorite Staff boosts gravity spells by 30% and nothing else; Godslayer's Seal boosts black flame by 10% and nothing else. A catalyst with three passives is a Skyrim enchanted item, not an Elden Ring catalyst, and it will feel like one.
+A level-one character may equip every catalyst and use its complete spell
+family immediately. Skyrim skills and perks improve magnitude, efficiency, or
+other results; they never suppress scaling, disable a spell, or create a
+minimum-use threshold.
+
+That passive constraint matters. Elden Ring's catalysts are memorable because each does one thing: Meteorite Staff boosts gravity spells by 30% and nothing else; Godslayer's Seal boosts black flame by 10% and nothing else. A catalyst with three passives is a Skyrim enchanted item, not an Elden Ring catalyst, and it will feel like one.
 
 ## Scaling
 
