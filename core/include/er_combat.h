@@ -87,7 +87,10 @@ typedef struct ErOutput {
     ErVec3 sweep_a[ER_SWEEP_STEPS];
     ErVec3 sweep_b[ER_SWEEP_STEPS];
     float hit_radius;
-    float hit_damage;
+    /* Multiplier over Skyrim's normal weapon damage; never absolute ER damage. */
+    float damage_multiplier;
+    /* Pressure on the separate stance meter, relative to a light attack. */
+    float stance_multiplier;
     float hit_stop;
 } ErOutput;
 

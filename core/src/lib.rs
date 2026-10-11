@@ -7,5 +7,7 @@
 //! simulation at its fixed 60 Hz, and hands back where the player should be,
 //! which action is playing and whether a swing is live.
 
+pub mod balance;
+pub mod effects;
 pub mod ffi;
 pub mod sim;

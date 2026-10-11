@@ -62,7 +62,9 @@ Please keep generated data out of forks and uploads, as upstream asks.
 
 ## Status
 
-- [x] Core as a library with a C interface; 9 tests (`cd core && cargo test`)
+- [x] Core as a library with a C interface; 20 tests (`cd core && cargo test --lib`)
+- [x] Bounded action/armament balance policy and an action-economy report
+- [x] Delivery-agnostic status buildup and buff/debuff stacking kernel
 - [x] SKSE bridge scaffold: combat mode, input, action → animation event, i-frames
 - [ ] First in-game build and test on 1.6.1170
 - [ ] Lock-on target from True Directional Movement

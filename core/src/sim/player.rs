@@ -158,6 +158,9 @@ pub enum HitResult {
 /// The swing that is live this tick.
 #[derive(Clone, Copy, Debug)]
 pub struct ActiveHit {
+    /// Which action produced this hit. The Skyrim-facing balance layer uses
+    /// the role, not Elden Ring's absolute weapon attack, to price the hit.
+    pub kind: AttackKind,
     /// Base attack of the weapon doing the hitting.
     pub attack: f32,
     pub mv: f32,
@@ -345,6 +348,7 @@ impl Player {
             let hit = attack.moveset.attack(kind).and_then(|landing| landing.hit())?;
             let sweep = self.sweep(def.blade, def.from, attack.f)?;
             return live.then_some(ActiveHit {
+                kind,
                 attack: attack.moveset.info().attack,
                 mv: hit.mv,
                 guard_damage: hit.guard_damage,
@@ -356,11 +360,12 @@ impl Player {
         let State::Act(a) = self.state else {
             return None;
         };
-        let ActionId::Attack(moveset, _) = a.id else {
+        let ActionId::Attack(moveset, kind) = a.id else {
             return None;
         };
         let (_, hit) = Self::live_hit(&a)?;
         Some(ActiveHit {
+            kind,
             attack: moveset.info().attack,
             mv: hit.mv,
             guard_damage: hit.guard_damage,

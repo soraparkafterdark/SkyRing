@@ -162,8 +162,12 @@ pub struct ErOutput {
     pub sweep_a: [ErVec3; SWEEP_STEPS],
     pub sweep_b: [ErVec3; SWEEP_STEPS],
     pub hit_radius: f32,
-    /// Weapon base attack times the swing's motion value.
-    pub hit_damage: f32,
+    /// Bounded multiplier over the damage Skyrim assigns to this weapon hit.
+    /// This is deliberately not an Elden Ring-derived absolute damage value.
+    pub damage_multiplier: f32,
+    /// Pressure on the target's separate stance meter, relative to a baseline
+    /// light attack from the same weapon class.
+    pub stance_multiplier: f32,
     /// Seconds both sides should freeze for if this swing lands.
     pub hit_stop: f32,
 }
@@ -326,7 +330,8 @@ impl ErCombat {
             sweep_a,
             sweep_b,
             hit_radius: hit.map_or(0.0, |h| h.radius * UNITS_PER_METRE),
-            hit_damage: hit.map_or(0.0, |h| h.attack * h.mv),
+            damage_multiplier: hit.map_or(0.0, |h| crate::balance::damage_multiplier(h.kind, h.mv)),
+            stance_multiplier: hit.map_or(0.0, |h| crate::balance::stance_multiplier(h.kind)),
             hit_stop: hit.map_or(0.0, |h| h.stop * crate::sim::data::HIT_STOP_SCALE),
         }
     }
@@ -581,7 +586,7 @@ mod tests {
         let out = live.expect("the swing should go live");
         // Heading 0 faces +Y: the blade is out in front.
         assert!(out.sweep_b.iter().all(|b| b.y > out.position.y));
-        assert!(out.hit_damage > 0.0 && out.hit_radius > 0.0);
+        assert!(out.damage_multiplier > 0.0 && out.hit_radius > 0.0);
         c.confirm_hit();
         assert_eq!(c.output().hit_live, 0, "a swing lands once");
     }
@@ -642,10 +647,11 @@ mod layout {
         assert_eq!(size_of::<ErInput>(), 32);
         assert_eq!(size_of::<ErWorld>(), 36);
         assert_eq!(offset_of!(ErWorld, target), 20);
-        assert_eq!(size_of::<ErOutput>(), 220);
+        assert_eq!(size_of::<ErOutput>(), 224);
         assert_eq!(offset_of!(ErOutput, action), 20);
         assert_eq!(offset_of!(ErOutput, stamina), 80);
         assert_eq!(offset_of!(ErOutput, sweep_a), 88);
-        assert_eq!(offset_of!(ErOutput, hit_stop), 216);
+        assert_eq!(offset_of!(ErOutput, stance_multiplier), 216);
+        assert_eq!(offset_of!(ErOutput, hit_stop), 220);
     }
 }
