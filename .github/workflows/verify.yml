@@ -41,6 +41,16 @@ jobs:
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
+      - name: Select the Visual Studio x64 compiler
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: x64
+      - name: Verify MSVC environment
+        shell: pwsh
+        run: |
+          if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
+            throw "Visual Studio C++ compiler is not available"
+          }
       - name: Build Rust core DLL
         working-directory: core
         run: cargo build --release
