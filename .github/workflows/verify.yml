@@ -18,11 +18,11 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Set isolated repository identity
@@ -37,7 +37,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
@@ -54,7 +54,7 @@ jobs:
         working-directory: plugin
         run: cmake --build --preset release
       - name: Upload non-release build for inspection
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: skyring-windows-synthetic-${{ github.sha }}
           path: plugin/dist/SKSE/Plugins/

@@ -29,7 +29,7 @@ EVIDENCE_PATH = ROOT / "verification" / "runtime-evidence.json"
 REPORT_PATH = ROOT / "verification" / "out" / "last-run.json"
 EXPECTED_NAME = "soraparkafterdark"
 EXPECTED_EMAIL = "sorapark@proton.me"
-EXPECTED_REMOTE_SUFFIX = "github.com/soraparkafterdark/SkyRing.git"
+EXPECTED_REMOTE_SUFFIX = "github.com/soraparkafterdark/SkyRing"
 
 
 class VerificationError(RuntimeError):
@@ -146,7 +146,8 @@ def check_repository_identity() -> str:
         raise VerificationError(
             f"local Git identity is {name} <{email}>; expected {EXPECTED_NAME} <{EXPECTED_EMAIL}>"
         )
-    if not remote.rstrip("/").endswith(EXPECTED_REMOTE_SUFFIX):
+    normalized_remote = remote.rstrip("/").removesuffix(".git")
+    if not normalized_remote.endswith(EXPECTED_REMOTE_SUFFIX):
         raise VerificationError(f"origin push URL is not the isolated Sora fork: {remote}")
     if re.match(r"https://[^/@:]+:[^/@]+@", remote):
         raise VerificationError("origin URL appears to contain an inline password or token")
