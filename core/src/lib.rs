@@ -8,6 +8,8 @@
 //! which action is playing and whether a swing is live.
 
 pub mod balance;
+pub mod consequences;
 pub mod effects;
 pub mod ffi;
+pub mod posture;
 pub mod sim;

@@ -26,11 +26,11 @@ The combat logic is the engine-free simulation from
 
 | Path | What it is |
 |---|---|
-| `core/` | Rust library `er_combat_core.dll`. `src/sim/` is the upstream simulation (Bevy math swapped for `glam`). `src/ffi.rs` is the C interface, in Skyrim units and axes. |
+| `core/` | Rust library `er_combat_core.dll`. `src/sim/` owns action timing, while `balance`, `consequences`, `effects`, and `posture` translate contacts into Skyrim-facing results. `src/ffi.rs` is the C interface, in Skyrim units and axes. |
 | `core/include/er_combat.h` | The C header for that interface. Tests check that it matches the Rust structs byte for byte. |
 | `plugin/` | The SKSE plugin (C++, CommonLibSSE-NG). It hooks the player's update, reads input and plays the core's actions. |
 | `plugin/dist/` | What goes in the mod archive: `SKSE/Plugins/ERCombat.dll`, `er_combat_core.dll` and `ERCombat.ini`. |
-| `docs/PLAN.md` | The design and build order. |
+| `architecture.md` | The implementation contract, ownership boundaries, and build order. |
 
 ## Building (Windows)
 
@@ -62,9 +62,11 @@ Please keep generated data out of forks and uploads, as upstream asks.
 
 ## Status
 
-- [x] Core as a library with a C interface; 20 tests (`cd core && cargo test --lib`)
+- [x] Core as a library with a C interface; 29 tests (`cd core && cargo test --all-targets`)
 - [x] Bounded action/armament balance policy and an action-economy report
 - [x] Delivery-agnostic status buildup and buff/debuff stacking kernel
+- [x] Separate defensive poise and offensive stance meters
+- [x] Shared hit consequence contract for elements, statuses, modifiers, poise, and stance
 - [x] SKSE bridge scaffold: combat mode, input, action → animation event, i-frames
 - [ ] First in-game build and test on 1.6.1170
 - [ ] Lock-on target from True Directional Movement

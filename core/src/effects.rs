@@ -27,7 +27,7 @@ impl StatusKind {
         Self::Madness,
     ];
 
-    const fn index(self) -> usize {
+    pub const fn index(self) -> usize {
         self as usize
     }
 }
