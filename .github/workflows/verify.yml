@@ -58,7 +58,8 @@ jobs:
         shell: pwsh
         run: Add-Content -Path $env:GITHUB_ENV -Value "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT"
       - name: Restore vcpkg dependencies
-        uses: actions/cache@v6
+        id: vcpkg-cache
+        uses: actions/cache/restore@v6
         with:
           path: |
             plugin/build/vcpkg_installed
@@ -67,6 +68,14 @@ jobs:
       - name: Configure SKSE plugin
         working-directory: plugin
         run: cmake --preset release
+      - name: Save vcpkg dependencies
+        if: steps.vcpkg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            plugin/build/vcpkg_installed
+            C:\vcpkg\downloads
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
       - name: Build SKSE plugin
         working-directory: plugin
         run: cmake --build --preset release
