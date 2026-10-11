@@ -249,3 +249,21 @@ contact, time to neutral, DPS, stamina efficiency, stance per second, buildup
 per second, and the ratio to the light-attack baseline. A value outside its
 role envelope fails loudly; it is not silently accepted because it came from
 source data.
+
+### Verification profiles
+
+`verification/contract.json` is the machine-readable completion contract and
+`tools/verify.py` is its local runner. The profiles are deliberately not
+interchangeable:
+
+- `local` permits the synthetic action table and proves only host-testable
+  plumbing and invariants;
+- `source` requires the owner's generated action table and fingerprints it;
+- `release` also requires Windows artifacts and CrossOver evidence tied to the
+  exact commit and source fingerprint.
+
+A lower profile must never be summarized as a higher one. Missing proprietary
+data or an unavailable runtime is a visible failed gate, not a silent skip.
+The complete colossal-sword criteria live in the contract's
+`release_acceptance` list so an automated harness cannot redefine "done" as
+"the unit tests passed."

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "commit": "replace-with-full-git-commit",
+  "source_data_sha256": "replace-with-extracted-rs-sha256",
+  "elden_ring_build": "record-source-game-build",
+  "skyrim_version": "1.6.1170",
+  "crossover_version": "record-version",
+  "apple_hardware": "record-model-and-chip",
+  "artifacts": [
+    {
+      "path": "plugin/dist/SKSE/Plugins/ERCombat.dll",
+      "sha256": "replace-with-sha256"
+    },
+    {
+      "path": "plugin/dist/SKSE/Plugins/er_combat_core.dll",
+      "sha256": "replace-with-sha256"
+    }
+  ],
+  "runtime_log": {
+    "path": "verification/out/runtime.log",
+    "sha256": "replace-with-sha256"
+  },
+  "acceptance": {
+    "input": false,
+    "collision_preserving_movement": false,
+    "animation": false,
+    "outgoing_contact": false,
+    "incoming_evasion_and_blocking": false,
+    "skyrim_native_damage": false,
+    "stamina": false,
+    "hit_stop": false,
+    "deterministic_logs": false,
+    "timing_within_one_frame": false
+  },
+  "notes": "Copy this to verification/runtime-evidence.json and replace every placeholder. The verifier rejects false, missing, stale, or hash-mismatched evidence."
+}

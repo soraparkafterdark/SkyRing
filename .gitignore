@@ -8,3 +8,8 @@ plugin/dist/SKSE/Plugins/*.dll
 plugin/dist/SKSE/Plugins/*.pdb
 *.7z
 *.zip
+# Local verification outputs and runtime evidence. The example stays tracked.
+verification/out/
+verification/runtime-evidence.json
+__pycache__/
+*.pyc

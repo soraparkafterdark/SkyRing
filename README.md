@@ -70,6 +70,27 @@ compiles and the tests run. To use the real data:
 
 Please keep generated data out of forks and uploads, as upstream asks.
 
+The Windows machine doing the extraction does not need a discrete GPU. See
+[`docs/EXTRACTION.md`](docs/EXTRACTION.md) for the selective file list,
+workstation guidance, and the source-data verification handoff.
+
+## Verification profiles
+
+The repository distinguishes host-testable plumbing from source-data and
+actual runtime proof:
+
+```bash
+python3 tools/verify.py --profile local    # synthetic plumbing is allowed
+python3 tools/verify.py --profile source   # requires owner-generated data
+python3 tools/verify.py --profile release  # also requires matching CrossOver evidence
+```
+
+Each run writes an ignored JSON report to `verification/out/last-run.json`.
+The release profile cannot pass from unit tests alone; it fingerprints the
+exact commit, extracted data, Windows DLLs, runtime log, and every melee-slice
+acceptance assertion. The operational rules for coding agents are in
+[`AGENTS.md`](AGENTS.md).
+
 ## Status
 
 - [x] Core as a library with a C interface; 29 tests (`cd core && cargo test --all-targets`)
