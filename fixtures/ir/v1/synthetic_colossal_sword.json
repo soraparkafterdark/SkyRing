@@ -1,0 +1,63 @@
+{
+  "ir_version": 1,
+  "provenance": {
+    "source": "synthetic",
+    "generator": "Skytest",
+    "data_fingerprint": null
+  },
+  "units": {
+    "time": "s",
+    "distance": "m",
+    "angle": "deg"
+  },
+  "actions": [
+    {
+      "id": "light_attack",
+      "duration_s": 0.5,
+      "stamina_cost": 10,
+      "iframes_s": [],
+      "hit_windows_s": [
+        [0.1, 0.2]
+      ],
+      "cancel_windows_s": [
+        [0.3, 0.5]
+      ],
+      "root_motion_m": [
+        [0.0, 0.0, 0.0],
+        [0.5, 0.5, 0.0]
+      ]
+    },
+    {
+      "id": "heavy_attack",
+      "duration_s": 1.0,
+      "stamina_cost": 20,
+      "iframes_s": [],
+      "hit_windows_s": [
+        [0.2, 0.3]
+      ],
+      "cancel_windows_s": [
+        [0.5, 1.0]
+      ],
+      "root_motion_m": [
+        [0.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0]
+      ]
+    },
+    {
+      "id": "roll",
+      "duration_s": 0.6,
+      "stamina_cost": 15,
+      "iframes_s": [
+        [0.1, 0.4]
+      ],
+      "hit_windows_s": [],
+      "cancel_windows_s": [
+        [0.4, 0.6]
+      ],
+      "root_motion_m": [
+        [0.0, 0.0, 0.0],
+        [0.6, 0.0, 0.0]
+      ]
+    }
+  ]
+}
