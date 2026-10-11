@@ -262,6 +262,21 @@ def check_owner_data_tool() -> str:
     return f"owner-data bundle safety and round-trip tests passed ({count} tests)"
 
 
+def check_swarm_sandbox() -> str:
+    output = run([sys.executable, str(ROOT / "tools" / "swarm_sandbox.py"), "doctor", "--json"])
+    try:
+        report = json.loads(output)
+    except json.JSONDecodeError as error:
+        raise VerificationError(f"swarm doctor returned invalid JSON: {error}") from error
+    if report.get("status") != "PASS":
+        raise VerificationError("swarm sandbox doctor did not pass")
+    total = report.get("tasks_total")
+    independent = report.get("dump_independent")
+    if not isinstance(total, int) or not isinstance(independent, int) or independent > total:
+        raise VerificationError("swarm doctor returned invalid task counts")
+    return f"swarm manifest valid; {independent}/{total} tasks are dump-independent"
+
+
 def check_balance_report(cargo: Path, env: dict[str, str]) -> str:
     output = run(
         [str(cargo), "run", "--quiet", "--bin", "balance_report"],
@@ -392,6 +407,7 @@ def main() -> int:
 
     gate("balance_model", check_balance_model)
     gate("owner_data_tool", check_owner_data_tool)
+    gate("swarm_sandbox", check_swarm_sandbox)
     gate(
         "balance_report",
         lambda: unavailable(cargo_error) if cargo_error else check_balance_report(cargo, cargo_env),

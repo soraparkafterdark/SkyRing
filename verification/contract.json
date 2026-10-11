@@ -19,6 +19,7 @@
         "c_abi",
         "bridge_geometry",
         "owner_data_tool",
+        "swarm_sandbox",
         "balance_model",
         "balance_report"
       ]

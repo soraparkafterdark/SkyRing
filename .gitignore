@@ -11,6 +11,8 @@ plugin/dist/SKSE/Plugins/*.pdb
 # Local verification outputs and runtime evidence. The example stays tracked.
 verification/out/
 verification/runtime-evidence.json
+.swarm-task.json
+SWARM_TASK.md
 __pycache__/
 *.pyc
 # Private owner-data dumper workspaces and transfer bundles.

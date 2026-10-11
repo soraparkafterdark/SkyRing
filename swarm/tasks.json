@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "project": "SkyRing",
+  "integration_policy": {
+    "agent_may_push": false,
+    "agent_may_change_charter": false,
+    "one_task_per_sandbox": true,
+    "required_profile": "local",
+    "completion_claim_ceiling_without_owner_data": "local"
+  },
+  "checks": {
+    "local_contract": ["python3", "tools/verify.py", "--profile", "local"],
+    "rust_tests": ["cargo", "test", "--all-targets", "--manifest-path", "core/Cargo.toml"],
+    "tool_tests": ["python3", "-m", "unittest", "discover", "-s", "tools/tests", "-v"]
+  },
+  "tasks": [
+    {
+      "id": "ir-schema-v1",
+      "title": "Version the engine-neutral combat IR",
+      "priority": 1,
+      "depends_on": [],
+      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "local",
+      "allowed_paths": ["schemas/**", "fixtures/**", "tools/**", "verification/**", "architecture.md", "README.md"],
+      "checks": ["local_contract", "tool_tests"],
+      "done_when": "A versioned schema rejects absolute Elden Ring damage, validates provenance and units, and has synthetic golden fixtures."
+    },
+    {
+      "id": "deterministic-input-traces",
+      "title": "Record and replay deterministic combat traces",
+      "priority": 1,
+      "depends_on": ["ir-schema-v1"],
+      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "local",
+      "allowed_paths": ["core/**", "fixtures/**", "tools/**", "verification/**", "README.md", "architecture.md"],
+      "checks": ["local_contract", "rust_tests"],
+      "done_when": "The same synthetic input/world trace produces byte-stable action and contact events across repeated runs."
+    },
+    {
+      "id": "skyrim-stamina-authority",
+      "title": "Make Skyrim authoritative for stamina",
+      "priority": 1,
+      "depends_on": [],
+      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "windows",
+      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md", "architecture.md"],
+      "checks": ["local_contract", "rust_tests"],
+      "done_when": "The core schedules and reports costs while Skyrim owns the pool, maximum, regeneration, and save state; ABI and synthetic tests cover exhaustion."
+    },
+    {
+      "id": "movement-controller-adapter",
+      "title": "Route root-motion intent through Skyrim collision",
+      "priority": 1,
+      "depends_on": [],
+      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "windows",
+      "allowed_paths": ["plugin/**", "verification/**", "README.md", "architecture.md"],
+      "checks": ["local_contract"],
+      "done_when": "A narrow adapter applies bounded movement requests through the character controller without teleporting and reports actual position next tick."
+    },
+    {
+      "id": "incoming-hit-arbitration",
+      "title": "Arbitrate incoming dodge, block, and hurt results",
+      "priority": 1,
+      "depends_on": [],
+      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "windows",
+      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md", "architecture.md"],
+      "checks": ["local_contract", "rust_tests"],
+      "done_when": "Incoming native hits are classified once as dodged, jumped, blocked, guard-broken, or landed without duplicating Skyrim damage."
+    },
+    {
+      "id": "deterministic-event-log",
+      "title": "Emit deterministic runtime event logs",
+      "priority": 1,
+      "depends_on": ["deterministic-input-traces"],
+      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "windows",
+      "allowed_paths": ["core/**", "plugin/**", "fixtures/**", "tools/**", "verification/**", "README.md", "architecture.md"],
+      "checks": ["local_contract", "rust_tests"],
+      "done_when": "Action, movement, contact, confirmation, stamina, and consequence events have stable identifiers and replay-comparable serialization."
+    },
+    {
+      "id": "hit-stop-runtime",
+      "title": "Apply hit-stop without freezing unrelated Skyrim systems",
+      "priority": 2,
+      "depends_on": ["incoming-hit-arbitration", "deterministic-event-log"],
+      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "windows",
+      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md", "architecture.md"],
+      "checks": ["local_contract", "rust_tests"],
+      "done_when": "Confirmed hits produce bounded attacker/target hit-stop intent with deterministic overlap rules and no global time freeze."
+    },
+    {
+      "id": "consequence-ffi",
+      "title": "Expose the shared consequence contract through the ABI",
+      "priority": 2,
+      "depends_on": ["ir-schema-v1"],
+      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "windows",
+      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md", "architecture.md"],
+      "checks": ["local_contract", "rust_tests"],
+      "done_when": "Melee, spell, throwable, hazard, and creature delivery can submit one ABI-stable consequence payload without absolute source-game damage."
+    },
+    {
+      "id": "poise-stance-runtime",
+      "title": "Bridge separate poise and stance state to actors",
+      "priority": 2,
+      "depends_on": ["consequence-ffi", "incoming-hit-arbitration"],
+      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "windows",
+      "allowed_paths": ["core/**", "plugin/**", "verification/**", "README.md", "architecture.md"],
+      "checks": ["local_contract", "rust_tests"],
+      "done_when": "Defensive poise interruption and offensive stance accumulation remain independent through actor lifecycle and serialization adapters."
+    },
+    {
+      "id": "gamepad-bindings",
+      "title": "Add remappable gamepad bindings",
+      "priority": 2,
+      "depends_on": [],
+      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "windows",
+      "allowed_paths": ["plugin/**", "verification/**", "README.md"],
+      "checks": ["local_contract"],
+      "done_when": "Keyboard, mouse, and gamepad produce the same edge semantics without double-firing Skyrim handlers."
+    },
+    {
+      "id": "runtime-evidence-capture",
+      "title": "Automate exact-commit runtime evidence capture",
+      "priority": 2,
+      "depends_on": ["deterministic-event-log"],
+      "requires": {"owner_dump": false, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "local",
+      "allowed_paths": ["tools/**", "verification/**", "docs/**", "README.md", "architecture.md"],
+      "checks": ["local_contract", "tool_tests"],
+      "done_when": "A tool fingerprints DLLs, logs, commit, runtime versions, hardware, and explicit acceptance assertions without committing evidence."
+    },
+    {
+      "id": "owner-action-validation",
+      "title": "Validate real extracted actions against the IR",
+      "priority": 3,
+      "depends_on": ["ir-schema-v1", "deterministic-input-traces"],
+      "requires": {"owner_dump": true, "skyrim_runtime": false, "crossover": false},
+      "acceptance_ceiling": "source",
+      "allowed_paths": ["core/**", "tools/**", "verification/**", "docs/**"],
+      "checks": ["local_contract", "rust_tests", "tool_tests"],
+      "done_when": "Owner-generated timings, motion, sweeps, stamina, and provenance validate and are fingerprinted under the source profile."
+    },
+    {
+      "id": "animation-retarget-validation",
+      "title": "Validate owner-generated animation retargeting",
+      "priority": 3,
+      "depends_on": ["owner-action-validation"],
+      "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": false},
+      "acceptance_ceiling": "runtime",
+      "allowed_paths": ["tools/**", "verification/**", "docs/**", "plugin/**"],
+      "checks": ["local_contract", "tool_tests"],
+      "done_when": "Converted owner animations match IR windows within one frame and pass skeleton/root-motion validation in Skyrim."
+    },
+    {
+      "id": "crossover-colossal-sword-slice",
+      "title": "Prove the colossal-sword slice under CrossOver",
+      "priority": 3,
+      "depends_on": ["skyrim-stamina-authority", "movement-controller-adapter", "incoming-hit-arbitration", "hit-stop-runtime", "poise-stance-runtime", "animation-retarget-validation", "runtime-evidence-capture"],
+      "requires": {"owner_dump": true, "skyrim_runtime": true, "crossover": true},
+      "acceptance_ceiling": "release",
+      "allowed_paths": ["plugin/**", "verification/**", "docs/**", "README.md"],
+      "checks": ["local_contract"],
+      "done_when": "Every release acceptance assertion passes on the M2 Pro against artifacts and owner data fingerprinted to the exact commit."
+    }
+  ]
+}
