@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -27,10 +28,16 @@ class SandboxError(RuntimeError):
     pass
 
 
-def run(command: list[str], cwd: Path = ROOT, check: bool = True) -> subprocess.CompletedProcess[str]:
+def run(
+    command: list[str],
+    cwd: Path = ROOT,
+    check: bool = True,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     completed = subprocess.run(
         command,
         cwd=cwd,
+        env=env,
         check=False,
         text=True,
         stdout=subprocess.PIPE,
@@ -219,6 +226,33 @@ def resolve_command(command: list[str]) -> list[str]:
     return [cargo, *command[1:]] if cargo else command
 
 
+def command_environment(command: list[str]) -> dict[str, str] | None:
+    """Environment for a check command. A rustup cargo that is not on PATH cannot find its own
+    rustc, so its toolchain directory goes first on PATH; otherwise nothing changes."""
+    if not command or Path(command[0]).name != "cargo" or shutil.which("cargo"):
+        return None
+    environment = dict(os.environ)
+    environment["PATH"] = str(Path(command[0]).parent) + os.pathsep + environment.get("PATH", "")
+    return environment
+
+
+# Where a swarm worktree's work starts, most specific first: the swarm's own trunk, then main.
+DEFAULT_BASE_REFS = ("swarm/trunk", "main")
+
+
+def default_base(workspace: Path) -> str | None:
+    """The commit a workspace's changes are measured from when no --base is given and the
+    workspace was not prepared by `prepare`: the merge-base of its HEAD with the swarm trunk,
+    else with main. A workspace sitting exactly on that ref has no changes, which is correct."""
+    for ref in DEFAULT_BASE_REFS:
+        if run(["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"], cwd=workspace, check=False).returncode:
+            continue
+        merged = run(["git", "merge-base", "HEAD", ref], cwd=workspace, check=False)
+        if merged.returncode == 0 and merged.stdout.strip():
+            return merged.stdout.strip()
+    return None
+
+
 def path_allowed(path: str, patterns: list[str]) -> bool:
     normalized = path.replace("\\", "/")
     while normalized.startswith("./"):
@@ -385,9 +419,12 @@ def command_check(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         if metadata.get("task") != task["id"]:
             raise SandboxError(f"workspace belongs to task {metadata.get('task')!r}")
-    base = args.base or metadata.get("base")
+    base = args.base or metadata.get("base") or default_base(workspace)
     if not isinstance(base, str) or not base:
-        raise SandboxError("check requires --base or prepared workspace metadata")
+        raise SandboxError(
+            f"check needs a base: pass --base, use a prepared workspace, or have {' or '.join(DEFAULT_BASE_REFS)} "
+            "reachable from the workspace"
+        )
     paths = changed_paths(workspace, base)
     violations = [path for path in paths if not path_allowed(path, task["allowed_paths"])]
     checks: list[dict[str, Any]] = []
@@ -402,7 +439,8 @@ def command_check(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
         "detail": whitespace.stdout.strip(),
     })
     for check_name in task["checks"]:
-        completed = run(resolve_command(manifest["checks"][check_name]), cwd=workspace, check=False)
+        command = resolve_command(manifest["checks"][check_name])
+        completed = run(command, cwd=workspace, check=False, env=command_environment(command))
         checks.append({
             "name": check_name,
             "status": "PASS" if completed.returncode == 0 else "FAIL",
