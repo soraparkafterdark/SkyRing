@@ -8,6 +8,8 @@ import tempfile
 import unittest
 import zipfile
 
+import pytest
+
 
 TOOLS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS))
@@ -104,6 +106,60 @@ class OwnerDataTests(unittest.TestCase):
                 output.writestr("source/same", b"two")
             with self.assertRaisesRegex(owner_data.OwnerDataError, "normalize to the same"):
                 owner_data.validate_bundle(bundle)
+
+    def test_reimport_of_same_bundle_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, upstream, game = self.make_fixture(root)
+            bundle = root / "owner-data.zip"
+            owner_data.create_bundle(source, upstream, game, False, bundle, False)
+
+            repo = root / "repo"
+            (repo / "core" / "src" / "sim").mkdir(parents=True)
+            (repo / "verification").mkdir()
+            (repo / "verification" / "contract.json").write_text("{}\n", encoding="utf-8")
+
+            fingerprint = owner_data.sha256(bundle)[:16]
+            private_root = owner_data.import_bundle(bundle, repo, False)
+            self.assertTrue((private_root / "manifest.json").is_file())
+
+            with self.assertRaises(owner_data.OwnerDataError) as context:
+                owner_data.import_bundle(bundle, repo, False)
+            self.assertIn("already imported", str(context.exception))
+
+            self.assertTrue((private_root / "manifest.json").is_file())
+            self.assertEqual(private_root, repo / "owner_data" / fingerprint)
+
+    def test_tampered_bundle_is_refused_with_no_residue(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, upstream, game = self.make_fixture(root)
+            bundle = root / "owner-data.zip"
+            owner_data.create_bundle(source, upstream, game, False, bundle, False)
+
+            tampered = root / "tampered.zip"
+            first_binder = owner_data.ANIMATION_BINDERS[0]
+            with zipfile.ZipFile(bundle) as original, zipfile.ZipFile(tampered, "w") as output:
+                for info in original.infolist():
+                    payload = original.read(info.filename)
+                    if info.filename == f"source/chr/{first_binder}":
+                        payload = b"tampered"
+                    output.writestr(info.filename, payload)
+
+            with self.assertRaisesRegex(owner_data.OwnerDataError, "bundle member failed size/hash verification: source/chr/"):
+                owner_data.validate_bundle(tampered)
+
+            repo = root / "repo"
+            (repo / "core" / "src" / "sim").mkdir(parents=True)
+            (repo / "verification").mkdir()
+            (repo / "verification" / "contract.json").write_text("{}\n", encoding="utf-8")
+            with self.assertRaisesRegex(owner_data.OwnerDataError, "bundle member failed size/hash verification: source/chr/"):
+                owner_data.import_bundle(tampered, repo, False)
+
+            fingerprint = owner_data.sha256(bundle)[:16]
+            self.assertFalse((repo / "owner_data" / fingerprint).is_dir())
+            self.assertFalse((repo / "owner_data" / "current.json").is_file())
+            self.assertFalse((repo / "core" / "src" / "sim" / "extracted.rs").is_file())
 
 
 if __name__ == "__main__":
