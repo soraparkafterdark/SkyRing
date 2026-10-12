@@ -18,10 +18,10 @@
 
 use std::collections::BTreeMap;
 
-use crate::cast::{CastEvent, CastInput, CastRefusal, CastRequest, Caster, ImpactError, ImpactLedger};
+use crate::cast::{CastEvent, CastInput, CastRefusal, CastRequest, Caster, ImpactError, ImpactLedger, Registration};
 use crate::consequences::{ConsequenceState, HitOutcome, TargetRules};
 use crate::effects::{ModifiedStat, STATUS_COUNT};
-use crate::magic::{Catalyst, Hand, SpellDefinition, SpellDelivery, MAX_SPELL_DAMAGE_MULTIPLIER};
+use crate::magic::{Catalyst, Hand, SpellDefinition, MAX_SPELL_DAMAGE_MULTIPLIER};
 use crate::posture::{PoiseResult, StanceResult};
 
 /// Cast speed outside this range is a data error, not a build.
@@ -83,6 +83,9 @@ pub enum MagicEvent {
     CastRefused { tick: u64, actor: u32, spell: u32, reason: CastRefusal },
     SpellReleased { tick: u64, actor: u32, release_id: u64, spell: u32, damage_multiplier: f32, charge_fraction: f32 },
     MagickaSpent { tick: u64, actor: u32, amount: f32 },
+    /// The ledger refused to track a release (a duplicate id or a full table), so no impact
+    /// can ever resolve it. Loud on purpose: the bridge must not wait for an impact.
+    ReleaseUntracked { tick: u64, actor: u32, release_id: u64, reason: Registration },
     SelfEffectsApplied { tick: u64, actor: u32, applied: u32 },
     CastEnded { tick: u64, actor: u32, how: CastEnd },
     ImpactResolved {
@@ -305,8 +308,10 @@ impl MagicWorld {
                     damage_multiplier: snapshot.damage_multiplier,
                     charge_fraction: snapshot.charge_fraction,
                 });
-                if snapshot.spell.delivery != SpellDelivery::SelfCast {
-                    self.ledger.register(snapshot);
+                let release_id = snapshot.release_id;
+                match self.ledger.try_register(snapshot) {
+                    Registration::Tracked | Registration::SelfCast => {}
+                    reason => self.events.push(MagicEvent::ReleaseUntracked { tick, actor, release_id, reason }),
                 }
             }
             if self_effects > 0 {

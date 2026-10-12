@@ -1,5 +1,12 @@
 # SPELL_NOTES
 
+> **Resolved by Claude after review (see the commit that follows the merge).** Note 1 was right:
+> `docs/Magic overhaul.md` line 19 says "Two catalysts, passives stack", and `passive_bonus` now sums
+> same-family bonuses (different-family passives were already applied per family, so that part of the
+> note was not a defect). Note 2 is now stated in the `School` doc comment. Note 3 is fixed by
+> `ImpactLedger::try_register`, which returns `Registration` (`MagicWorld` logs `ReleaseUntracked`
+> when a release cannot be tracked); `register` stays as a yes/no wrapper. The original notes follow.
+
 Problems observed in the committed magic core while building the first spell
 matrix (Slice D). Per the tasking, `core/src/magic.rs` and `core/src/cast.rs`
 were **not** modified; the spell matrix in `core/src/spells.rs` and

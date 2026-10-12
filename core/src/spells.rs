@@ -38,12 +38,10 @@ pub const FAMILY_TERROR: SpellFamily = SpellFamily(5);
 pub const FAMILY_RIME: SpellFamily = SpellFamily(6);
 pub const FAMILY_SUNLIGHT: SpellFamily = SpellFamily(7);
 
-/// The quality of the high-scaling staff, expressed the only way the Charter
-/// allows: as a ratio. Elden Ring's strongest destruction staff scales at 413
-/// where the academy baseline scales at 345 — a relative gap of about 1.2.
-/// The two absolute values are used for nothing else and appear nowhere as
-/// damage, health or FP.
-pub const HIGH_STAFF_QUALITY: f32 = 413.0 / 345.0;
+/// The quality of the high-scaling staff, a ratio to the baseline: about 1.2, the relative
+/// gap `docs/Magic overhaul.md` takes from the source roster's ordering. No source-game
+/// absolute value is used anywhere in this file.
+pub const HIGH_STAFF_QUALITY: f32 = 1.2;
 
 // ---------------------------------------------------------------------------
 // Catalysts

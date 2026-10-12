@@ -11,7 +11,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::cast::{CastInput, CastRefusal, ImpactError};
+use crate::cast::{CastInput, CastRefusal, ImpactError, Registration};
 use crate::consequences::{HitOutcome, TargetRules};
 use crate::magic_world::{CastEnd, CastSpec, CastStart, ImpactRefusal, MagicEvent, MagicWorld, WorldError};
 
@@ -254,6 +254,22 @@ fn encode(event: &MagicEvent, out: &mut Vec<u8>) {
             u64_(out, *tick);
             u32_(out, *actor);
             f32_(out, *amount);
+        }
+        MagicEvent::ReleaseUntracked { tick, actor, release_id, reason } => {
+            u8_(out, 13);
+            u64_(out, *tick);
+            u32_(out, *actor);
+            u64_(out, *release_id);
+            u8_(
+                out,
+                match reason {
+                    Registration::Tracked => 0,
+                    Registration::SelfCast => 1,
+                    Registration::Duplicate => 2,
+                    Registration::Full => 3,
+                    Registration::Invalid => 4,
+                },
+            );
         }
         MagicEvent::SelfEffectsApplied { tick, actor, applied } => {
             u8_(out, 9);

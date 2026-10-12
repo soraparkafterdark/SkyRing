@@ -18,6 +18,7 @@ proven, treat the projectile-spell path as provisional.
 |---|---|
 | `core/src/magic.rs` | `Catalyst` (staff or ring: a relative `quality`, an `upgrade_level`, at most one `Passive`, a `cost_multiplier`), the gear axis `Base x f(skill) x (1 + upgrade)`, `SpellDefinition` with named validation errors, `SpellSnapshot` and its conversion to the shared `HitEvent`. |
 | `core/src/cast.rs` | `Caster`: a spell as a committed action (startup, cancel window, release, charge, hyperarmour, recovery, hand dedication, magicka read from the host and charged at the release frame). `ImpactLedger`: exactly-once correlation of a native impact to a release. |
+| `core/src/spells.rs` | The first slice's data, written by the albatross agent and reviewed here: three catalysts (a baseline staff, a high-scaling staff at ratio about 1.2 with a 1.5x cost trade, a ring with one passive) and the seven spells (direct, projectile, area, buff, debuff, status, charged). |
 | `core/src/magic_world.rs` | `MagicWorld`: casters, releases in flight and per-actor consequence state in one deterministic world; buffs and debuffs through the ordinary modifier set; actor death, unload and form reuse. |
 | `core/src/magic_trace.rs` | `MagicRecorder` records every call that can change a `MagicWorld`; `MagicScript::replay` re-runs them on a fresh world; `canonical_event_bytes` is a versioned, field-exact byte form of the event log, so a runtime log and its headless replay compare as bytes. |
 | `tools/magic_ir.py`, `fixtures/ir/v1/magic_matrix.json` | Catalysts and spells as optional IR records, with the Charter's rules enforced at the boundary. |
@@ -31,8 +32,12 @@ proven, treat the projectile-spell path as provisional.
   exactly the catalyst's quality) and never disables anything. The only thing that makes a
   spell unavailable to a catalyst is its family (staff or ring), and Destruction deliberately
   has spells on both. The IR rejects requirement keys anywhere, including Intelligence and Faith.
-- A catalyst carries a quality and **at most one passive**. Passives apply from either hand,
-  boost only their family, and do not stack (the stronger applies).
+- A catalyst carries a quality and **at most one passive**. Passives apply from either hand and
+  boost only their own family. **Passives stack** across the two catalysts (`docs/Magic
+  overhaul.md`: "Dual-wield casting: two catalysts, passives stack"): same-family bonuses add
+  (`1 + a + b`, the conservative reading, a tuning choice), and one physical catalyst in both
+  hands counts once. Two rings with different passives are a different build from one ring
+  because each covers its own family. The final damage multiplier stays bounded.
 - Casting is an action: a dodge cancels only before `cancel_until`; after it the cast is
   committed; poise breaks interrupt outside hyperarmour and are carried through inside it;
   the hand is dedicated from startup through recovery.

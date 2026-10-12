@@ -331,6 +331,20 @@ pub enum ImpactError {
     SelfCast,
 }
 
+/// What `ImpactLedger::try_register` did with a release.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Registration {
+    Tracked,
+    /// A self-cast has no impact; its effects come from the snapshot. Not an error.
+    SelfCast,
+    /// The ledger refused it: this release id is already tracked.
+    Duplicate,
+    /// The ledger refused it: the bounded table is full.
+    Full,
+    /// The release is not trackable (an area spell with no area).
+    Invalid,
+}
+
 /// Tuning input: how long a projectile may fly before its release is stale.
 pub const PROJECTILE_MAX_FLIGHT_SECONDS: f32 = 10.0;
 /// Tuning input: how long an instant spell's release may wait for its impact.
@@ -359,23 +373,29 @@ impl ImpactLedger {
         self.entries.is_empty()
     }
 
-    /// Starts tracking a release. Returns false for a self-cast (nothing to
-    /// resolve), a duplicate release id, or a full table.
-    pub fn register(&mut self, snapshot: SpellSnapshot) -> bool {
+    /// Starts tracking a release, and says exactly what happened.
+    pub fn try_register(&mut self, snapshot: SpellSnapshot) -> Registration {
         let remaining = match (snapshot.spell.delivery, snapshot.spell.area) {
-            (SpellDelivery::SelfCast, _) => return false,
+            (SpellDelivery::SelfCast, _) => return Registration::SelfCast,
             (SpellDelivery::Instant, _) => INSTANT_RESOLVE_SECONDS,
             (SpellDelivery::Projectile, _) => PROJECTILE_MAX_FLIGHT_SECONDS,
             (SpellDelivery::Area, Some(area)) => area.duration,
-            (SpellDelivery::Area, None) => return false,
+            (SpellDelivery::Area, None) => return Registration::Invalid,
         };
-        if self.entries.len() >= MAX_TRACKED_RELEASES
-            || self.entries.iter().any(|e| e.snapshot.release_id == snapshot.release_id)
-        {
-            return false;
+        if self.entries.iter().any(|e| e.snapshot.release_id == snapshot.release_id) {
+            return Registration::Duplicate;
+        }
+        if self.entries.len() >= MAX_TRACKED_RELEASES {
+            return Registration::Full;
         }
         self.entries.push(Entry { snapshot, remaining, resolved: Vec::new() });
-        true
+        Registration::Tracked
+    }
+
+    /// `try_register` as a yes/no. Prefer `try_register`: a self-cast (nothing to
+    /// resolve) and a refused release (a duplicate id, a full table) are different things.
+    pub fn register(&mut self, snapshot: SpellSnapshot) -> bool {
+        self.try_register(snapshot) == Registration::Tracked
     }
 
     /// Resolves a native impact of `release_id` on `target` into the shared

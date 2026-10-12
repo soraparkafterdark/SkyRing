@@ -167,6 +167,7 @@ fn kind(event: &MagicEvent) -> &'static str {
         MagicEvent::CastRefused { .. } => "CastRefused",
         MagicEvent::SpellReleased { .. } => "SpellReleased",
         MagicEvent::MagickaSpent { .. } => "MagickaSpent",
+        MagicEvent::ReleaseUntracked { .. } => "ReleaseUntracked",
         MagicEvent::SelfEffectsApplied { .. } => "SelfEffectsApplied",
         MagicEvent::CastEnded { .. } => "CastEnded",
         MagicEvent::ImpactResolved { .. } => "ImpactResolved",
@@ -174,11 +175,36 @@ fn kind(event: &MagicEvent) -> &'static str {
     }
 }
 
+/// More simultaneous releases than the ledger can track: the overflow is reported, not silent.
+fn flood() -> (MagicScript, Vec<MagicEvent>) {
+    let mut recorder = MagicRecorder::new();
+    for actor in 1..=70u32 {
+        recorder.spawn(actor, rules(100.0)).unwrap();
+    }
+    for actor in 1..=70u32 {
+        recorder.begin_cast(actor, &spec(bolt(), 100.0));
+    }
+    for _ in 0..40 {
+        recorder.step(DT, &idle());
+    }
+    recorder.finish()
+}
+
 #[test]
-fn the_script_exercises_every_kind_of_event() {
+fn the_scripts_exercise_every_kind_of_event() {
     let (_, events) = run();
-    let seen: BTreeSet<&str> = events.iter().map(kind).collect();
-    assert_eq!(seen.len(), 12, "missing kinds: {seen:?}");
+    let (_, flooded) = flood();
+    let seen: BTreeSet<&str> = events.iter().chain(flooded.iter()).map(kind).collect();
+    assert_eq!(seen.len(), 13, "missing kinds: {seen:?}");
+    assert!(flooded.iter().any(|e| matches!(e, MagicEvent::ReleaseUntracked { reason: er_combat_core::cast::Registration::Full, .. })));
+    assert_eq!(flooded.iter().filter(|e| matches!(e, MagicEvent::ReleaseUntracked { .. })).count(), 6, "70 releases, 64 tracked");
+}
+
+#[test]
+fn the_overflow_replays_identically() {
+    let (script, live) = flood();
+    assert_eq!(script.replay(), live);
+    assert_eq!(canonical_event_bytes(&script.replay()), canonical_event_bytes(&live));
 }
 
 #[test]
@@ -316,6 +342,14 @@ fn perturbations(event: &MagicEvent) -> Vec<MagicEvent> {
             MagickaSpent { tick, actor: actor + 1, amount },
             MagickaSpent { tick, actor, amount: amount + 0.001 },
         ],
+        ReleaseUntracked { tick, actor, release_id, reason } => vec![
+            ReleaseUntracked { tick: tick + 1, actor, release_id, reason },
+            ReleaseUntracked { tick, actor: actor + 1, release_id, reason },
+            ReleaseUntracked { tick, actor, release_id: release_id + 1, reason },
+            ReleaseUntracked { tick, actor, release_id, reason: er_combat_core::cast::Registration::Duplicate },
+            ReleaseUntracked { tick, actor, release_id, reason: er_combat_core::cast::Registration::Full },
+            ReleaseUntracked { tick, actor, release_id, reason: er_combat_core::cast::Registration::Invalid },
+        ],
         SelfEffectsApplied { tick, actor, applied } => vec![
             SelfEffectsApplied { tick: tick + 1, actor, applied },
             SelfEffectsApplied { tick, actor: actor + 1, applied },
@@ -350,7 +384,8 @@ fn perturbations(event: &MagicEvent) -> Vec<MagicEvent> {
 
 #[test]
 fn every_field_of_every_event_changes_the_bytes() {
-    let (_, events) = run();
+    let (_, mut events) = run();
+    events.extend(flood().1);
     let mut checked = BTreeSet::new();
     for event in &events {
         let original = canonical_event_bytes(std::slice::from_ref(event));
@@ -362,7 +397,7 @@ fn every_field_of_every_event_changes_the_bytes() {
             checked.insert(kind(event));
         }
     }
-    assert_eq!(checked.len(), 12, "every kind was perturbed: {checked:?}");
+    assert_eq!(checked.len(), 13, "every kind was perturbed: {checked:?}");
     // Order matters too.
     let (first, second) = (events[0].clone(), events[1].clone());
     assert_ne!(canonical_event_bytes(&[first.clone(), second.clone()]), canonical_event_bytes(&[second, first]));

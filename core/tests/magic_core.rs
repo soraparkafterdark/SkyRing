@@ -194,18 +194,47 @@ fn catalyst_validity_bounds() {
 }
 
 #[test]
-fn passives_boost_only_their_family_from_either_hand_and_do_not_stack() {
+fn passives_boost_only_their_family_from_either_hand_and_stack() {
     let gravity = SpellFamily(7);
     let other = SpellFamily(9);
-    let meteor = Catalyst { passive: Some(Passive { family: gravity, bonus: 0.3 }), ..staff(1.0) };
-    let weaker = ring(Some(Passive { family: gravity, bonus: 0.1 }));
-    let elsewhere = ring(Some(Passive { family: other, bonus: 0.4 }));
+    // Distinct items have distinct ids; the same id in both hands is one item.
+    let meteor = Catalyst { id: 5, passive: Some(Passive { family: gravity, bonus: 0.3 }), ..staff(1.0) };
+    let weaker = Catalyst { id: 6, ..ring(Some(Passive { family: gravity, bonus: 0.1 })) };
+    let elsewhere = Catalyst { id: 7, ..ring(Some(Passive { family: other, bonus: 0.4 })) };
     assert_eq!(passive_bonus(gravity, &staff(1.0), None), 0.0);
     assert_eq!(passive_bonus(gravity, &meteor, None), 0.3, "the casting catalyst's own passive");
     assert_eq!(passive_bonus(gravity, &staff(1.0), Some(&meteor)), 0.3, "the off hand supplies a passive");
-    assert_eq!(passive_bonus(gravity, &meteor, Some(&weaker)), 0.3, "the stronger of two, not the sum");
-    assert_eq!(passive_bonus(gravity, &meteor, Some(&elsewhere)), 0.3, "another family's passive is not applied");
+    // Powerstancing: two catalysts, same family, the bonuses add.
+    assert!((passive_bonus(gravity, &meteor, Some(&weaker)) - 0.4).abs() < 1e-6, "0.3 + 0.1");
+    assert!((passive_bonus(gravity, &weaker, Some(&meteor)) - 0.4).abs() < 1e-6, "order does not matter");
+    // Another family's passive is not applied to this spell, from either hand.
+    assert_eq!(passive_bonus(gravity, &meteor, Some(&elsewhere)), 0.3);
+    assert_eq!(passive_bonus(other, &meteor, Some(&elsewhere)), 0.4);
     assert_eq!(passive_bonus(SpellFamily(1), &meteor, Some(&elsewhere)), 0.0);
+    // Two rings with different passives are a different build from one ring: each boosts
+    // its own family, so pairing them covers both families a single ring covers only one of.
+    let pair = (Catalyst { id: 8, ..ring(Some(Passive { family: gravity, bonus: 0.2 })) }, Catalyst { id: 9, ..ring(Some(Passive { family: other, bonus: 0.2 })) });
+    assert_eq!(passive_bonus(gravity, &pair.0, Some(&pair.1)), 0.2);
+    assert_eq!(passive_bonus(other, &pair.0, Some(&pair.1)), 0.2);
+    assert_eq!(passive_bonus(other, &pair.0, None), 0.0, "one ring alone covers only its own family");
+    // The same physical catalyst in both hands counts once.
+    assert_eq!(passive_bonus(gravity, &meteor, Some(&meteor)), 0.3);
+    // The most two catalysts can give.
+    let max = |id| Catalyst { id, passive: Some(Passive { family: gravity, bonus: MAX_PASSIVE_BONUS }), ..staff(1.0) };
+    assert!((passive_bonus(gravity, &max(1), Some(&max(2))) - 2.0 * MAX_PASSIVE_BONUS).abs() < 1e-6);
+}
+
+#[test]
+fn stacked_passives_still_respect_the_final_damage_bound() {
+    let spell = SpellDefinition { power_ratio: MAX_POWER_RATIO, ..bolt() };
+    let boosted = |id| Catalyst {
+        id,
+        upgrade_level: MAX_UPGRADE_LEVEL,
+        passive: Some(Passive { family: spell.family, bonus: MAX_PASSIVE_BONUS }),
+        ..staff(MAX_QUALITY)
+    };
+    let value = spell_damage_multiplier(&spell, &boosted(1), Some(&boosted(2)), 100.0, MAX_CHARGE_POWER);
+    assert_eq!(value, MAX_SPELL_DAMAGE_MULTIPLIER, "dual-casting cannot exceed the cap");
 }
 
 #[test]
@@ -647,6 +676,28 @@ fn self_casts_duplicates_and_floods_are_not_tracked() {
         }
     }
     assert_eq!(accepted, MAX_TRACKED_RELEASES, "the table is bounded");
+    assert_eq!(ledger.len(), MAX_TRACKED_RELEASES);
+}
+
+#[test]
+fn registration_says_exactly_what_happened() {
+    let mut ledger = ImpactLedger::default();
+    let bolt_snapshot = snapshot_of(&bolt(), 1);
+    assert_eq!(ledger.try_register(bolt_snapshot.clone()), Registration::Tracked);
+    assert_eq!(ledger.try_register(bolt_snapshot), Registration::Duplicate);
+    assert_eq!(ledger.try_register(snapshot_of(&buff(), 1)), Registration::SelfCast, "nothing to resolve is not a refusal");
+    let mut no_area = snapshot_of(&zone(), 1);
+    no_area.spell.area = None;
+    assert_eq!(ledger.try_register(no_area), Registration::Invalid);
+    let mut caster = Caster::new(2);
+    let (spell, catalyst) = (bolt(), staff(1.0));
+    let mut outcomes = Vec::new();
+    for _ in 0..(MAX_TRACKED_RELEASES + 2) {
+        caster.begin(request(&spell, &catalyst, 100.0)).unwrap();
+        let (_, events) = run(&mut caster, |_| input(100.0), 120);
+        outcomes.push(ledger.try_register(released(&events)[0].clone()));
+    }
+    assert!(outcomes.contains(&Registration::Full), "{outcomes:?}");
     assert_eq!(ledger.len(), MAX_TRACKED_RELEASES);
 }
 

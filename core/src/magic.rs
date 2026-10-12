@@ -25,7 +25,9 @@
 use crate::consequences::{ElementalProfile, HitEvent};
 use crate::effects::{ModifiedStat, Modifier, ModifierOperation, StackRule, STATUS_COUNT};
 
-/// Skyrim's five schools. A catalyst's governing skill is its school.
+/// Skyrim's five schools. A catalyst's governing skill is its school. A spell's school is
+/// descriptive: no rule compares it with a catalyst's, because skill never gates anything.
+/// Only the catalyst *family* (staff or ring) decides what a catalyst can cast.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum School {
@@ -167,18 +169,23 @@ pub const fn magicka_regen_allowed(in_combat: bool) -> bool {
     !in_combat
 }
 
-/// The strongest passive that applies to `family` among the catalysts in the
-/// casting hand and the off hand. Two catalysts boosting the same family do
-/// not stack: the stronger one applies. The casting hand supplies scaling;
-/// either hand supplies a passive.
+/// The passive bonus that applies to `family` from the two catalysts in hand. The casting
+/// hand supplies scaling; either hand supplies a passive, and **passives stack**
+/// (`docs/Magic overhaul.md`: "Dual-wield casting: two catalysts, passives stack"). Only
+/// passives of the spell's own family count, so a ring boosting another family does nothing
+/// for this spell, and two rings with different passives give a different build from one
+/// because each boosts its own family. Same-family bonuses add (`1 + a + b`, not `(1 + a)(1 + b)`,
+/// the conservative reading; a tuning choice). With two catalysts the sum is at most
+/// `2 x MAX_PASSIVE_BONUS`. One physical catalyst in both hands counts once.
 pub fn passive_bonus(family: SpellFamily, casting: &Catalyst, offhand: Option<&Catalyst>) -> f32 {
-    [Some(casting), offhand]
+    let off = offhand.filter(|other| other.id != casting.id);
+    [Some(casting), off]
         .into_iter()
         .flatten()
         .filter_map(|c| c.passive)
         .filter(|p| p.family == family)
         .map(|p| p.bonus)
-        .fold(0.0, f32::max)
+        .fold(0.0, |total, bonus| total + bonus)
 }
 
 /// How a spell reaches its target. The seven cases of the first magic slice
