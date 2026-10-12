@@ -265,5 +265,77 @@ class OwnerDataTests(unittest.TestCase):
         # Should not raise
         owner_data.validate_action_list(valid_actions)
 
+    def test_windows_game_dir_accept(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            game = Path(directory) / "Game"
+            game.mkdir()
+            for name in ("eldenring.exe", "regulation.bin", "oo2core_6_win64.dll"):
+                (game / name).write_bytes(b"placeholder")
+            # Should not raise
+            owner_data.validate_game_dir(game)
+
+    def test_windows_game_dir_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            for missing in ("eldenring.exe", "regulation.bin", "oo2core_6_win64.dll"):
+                with self.subTest(missing=missing):
+                    game = Path(directory) / f"game_without_{missing}"
+                    game.mkdir()
+                    for name in ("eldenring.exe", "regulation.bin", "oo2core_6_win64.dll"):
+                        if name != missing:
+                            (game / name).write_bytes(b"placeholder")
+                    with self.assertRaisesRegex(
+                        owner_data.OwnerDataError,
+                        r"not an Elden Ring Game directory",
+                    ) as context:
+                        owner_data.validate_game_dir(game)
+                    self.assertIn(missing, str(context.exception))
+
+    def test_print_nuxe_plan_text(self) -> None:
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            game = root / "Game"
+            source = root / "Source"
+            game.mkdir()
+            source.mkdir()
+            for include_sounds in (True, False):
+                with self.subTest(include_sounds=include_sounds):
+                    buffer = io.StringIO()
+                    with contextlib.redirect_stdout(buffer):
+                        owner_data.print_nuxe_plan(game, source, include_sounds)
+                    output = buffer.getvalue()
+                    self.assertIn("Elden Ring (PC)", output)
+                    self.assertIn(str(game), output)
+                    self.assertIn("Unpack directory", output)
+                    self.assertIn(str(source), output)
+                    expected_filter = owner_data.nuxe_filter(include_sounds)
+                    self.assertIn(f"Filter: {expected_filter}", output)
+                    if include_sounds:
+                        self.assertIn("sd/", expected_filter)
+                    else:
+                        self.assertNotIn("sd/", expected_filter)
+
+    def test_validate_nuxe_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source"
+            (source / "chr").mkdir(parents=True)
+            for name in owner_data.ANIMATION_BINDERS:
+                (source / "chr" / name).write_bytes(b"animation")
+            (source / "regulation.bin").write_bytes(b"regulation")
+            (source / "oo2core_6_win64.dll").write_bytes(b"oodle")
+            # Should not raise
+            owner_data.validate_nuxe_output(source, False)
+            # Remove one binder and expect failure
+            missing = owner_data.ANIMATION_BINDERS[0]
+            (source / "chr" / missing).unlink()
+            with self.assertRaisesRegex(
+                owner_data.OwnerDataError,
+                r"Nuxe output is incomplete\. Missing:",
+            ) as context:
+                owner_data.validate_nuxe_output(source, False)
+            self.assertIn(missing, str(context.exception))
+
 if __name__ == "__main__":
     unittest.main()
