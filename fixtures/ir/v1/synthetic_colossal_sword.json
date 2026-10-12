@@ -12,7 +12,7 @@
   },
   "actions": [
     {
-      "id": "light_attack",
+      "id": "Light1",
       "duration_s": 0.5,
       "stamina_cost": 10,
       "iframes_s": [],
@@ -28,7 +28,7 @@
       ]
     },
     {
-      "id": "heavy_attack",
+      "id": "Heavy1",
       "duration_s": 1.0,
       "stamina_cost": 20,
       "iframes_s": [],
@@ -44,7 +44,7 @@
       ]
     },
     {
-      "id": "roll",
+      "id": "RollAttack",
       "duration_s": 0.6,
       "stamina_cost": 15,
       "iframes_s": [

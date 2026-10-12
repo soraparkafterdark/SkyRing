@@ -343,6 +343,34 @@ class CombatIRTests(unittest.TestCase):
             f"Expected error for invalid window bounds, got: {errors}",
         )
 
+    def test_translate_unknown_kind_returns_none_multiplier(self) -> None:
+        # An unknown attack kind must translate to damage_multiplier=None with a
+        # non-empty reason, so callers can distinguish "no translation" from
+        # "translated to zero damage".
+        result = combat_ir.translate("UnknownKind", 1.0)
+        self.assertIsNone(
+            result["damage_multiplier"],
+            f"Expected damage_multiplier=None for unknown kind, got: {result}",
+        )
+        self.assertIsInstance(result["reason"], str)
+        self.assertTrue(
+            len(result["reason"]) > 0,
+            f"Expected non-empty reason, got: {result}",
+        )
+        self.assertEqual(result["kind"], "UnknownKind")
+
+    def test_validate_rejects_unknown_attack_kind(self) -> None:
+        # An action whose id is not a known AttackKind must be rejected by
+        # validate(), so an unknown kind cannot silently enter the IR document
+        # and later hit translate() at runtime.
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["id"] = "NotARealAttackKind"
+        errors = combat_ir.validate(doc)
+        self.assertTrue(
+            any("must be a known AttackKind" in e for e in errors),
+            f"Expected error about unknown AttackKind, got: {errors}",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

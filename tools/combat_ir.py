@@ -184,6 +184,16 @@ def validate(doc: Dict[str, Any]) -> List[str]:
                 errors.append(f'actions[{i}].id "{action_id}" must be unique')
             else:
                 seen_ids.add(action_id)
+                # Reject unknown attack kinds so they cannot silently enter the IR
+                # document and later hit translate() at runtime.
+                try:
+                    kind = AttackKind(action_id)
+                except ValueError:
+                    kind = None
+                if kind is None or kind not in _ENVELOPES:
+                    errors.append(
+                        f'actions[{i}].id "{action_id}" must be a known AttackKind'
+                    )
 
             # duration_s
             duration = action.get("duration_s")
@@ -327,7 +337,11 @@ def translate(kind: str, motion_value: Any) -> Dict[str, Any]:
     clamped into the role's damage envelope. The returned multiplier is always a
     finite float inside [damage_min, damage_max].
     """
-    envelope = _ENVELOPES.get(AttackKind(kind))
+    try:
+        attack_kind = AttackKind(kind)
+    except ValueError:
+        attack_kind = None
+    envelope = _ENVELOPES.get(attack_kind) if attack_kind is not None else None
     if envelope is None:
         return {
             "kind": kind,
