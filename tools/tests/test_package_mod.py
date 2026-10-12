@@ -63,8 +63,6 @@ class PackageTests(unittest.TestCase):
             "SKSE/Plugins/regulation.bin": "owner data",
             "SKSE/Plugins/ERCombat.log": "log or runtime evidence",
             "SKSE/Plugins/ERCombat.pdb": "log or runtime evidence",
-            "SKSE/Plugins/.env": "secret",
-            "SKSE/Plugins/github_token.txt": "secret",
             "owner_data/current.json": "owner data",
         }
         for name, reason in forbidden.items():
@@ -75,6 +73,16 @@ class PackageTests(unittest.TestCase):
                 self.assertIn(name, str(context.exception))
                 self.assertIn(reason, str(context.exception))
                 self.assertFalse((root / "out").exists(), "nothing may be written when the gate fails")
+
+    def test_secret_names_are_forbidden(self) -> None:
+        # Checked by name, not by writing the files: the swarm's sandbox refuses to create a
+        # file called .env even inside a temporary directory.
+        for name in ("SKSE/Plugins/.env", ".env.local", "SKSE/Plugins/github_token.txt", "keys/id_rsa",
+                     "keys/id_ed25519.pub", "certs/server.pem", "certs/server.key", "credentials.json"):
+            with self.subTest(name=name):
+                self.assertIn("secret", package_mod.forbidden_reason(name) or "", name)
+        for name in ("SKSE/Plugins/ERCombat.dll", "SKSE/Plugins/ERCombat.ini"):
+            self.assertIsNone(package_mod.forbidden_reason(name))
 
     def test_unlisted_files_are_refused_not_skipped(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
