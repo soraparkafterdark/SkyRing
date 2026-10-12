@@ -14,6 +14,11 @@ import math
 import sys
 from typing import Any, Dict, List
 
+try:
+    from magic_ir import validate_magic
+except ImportError:  # imported as tools.combat_ir
+    from tools.magic_ir import validate_magic
+
 
 class AttackKind(str, enum.Enum):
     """Attack kinds used by the bridge. Mirrors `AttackKind` in core/src/data.rs /
@@ -255,6 +260,9 @@ def validate(doc: Dict[str, Any]) -> List[str]:
                     if t_s <= prev_time:
                         errors.append(f'actions[{i}].root_motion_m[{k}] t_s must be strictly increasing')
                     prev_time = t_s
+
+    # Optional catalyst and spell records (additive to v1): see tools/magic_ir.py.
+    errors.extend(validate_magic(doc))
 
     # Check for forbidden keys (absolute damage etc.) anywhere in the document
     forbidden_keywords = {

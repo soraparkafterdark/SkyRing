@@ -1,0 +1,303 @@
+{
+  "ir_version": 1,
+  "provenance": {
+    "source": "synthetic",
+    "generator": "Skytest",
+    "data_fingerprint": null
+  },
+  "units": {
+    "time": "s",
+    "distance": "m",
+    "angle": "deg"
+  },
+  "actions": [
+    {
+      "id": "Light1",
+      "duration_s": 0.5,
+      "stamina_cost": 10,
+      "iframes_s": [],
+      "hit_windows_s": [
+        [
+          0.1,
+          0.2
+        ]
+      ],
+      "cancel_windows_s": [
+        [
+          0.3,
+          0.5
+        ]
+      ],
+      "root_motion_m": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.5,
+          0.5,
+          0.0
+        ]
+      ]
+    }
+  ],
+  "catalysts": [
+    {
+      "id": "synthetic_baseline_staff",
+      "kind": "staff",
+      "school": "destruction",
+      "quality": 1.0,
+      "upgrade_level": 0,
+      "cost_multiplier": 1.0,
+      "passive": null
+    },
+    {
+      "id": "synthetic_heavy_staff",
+      "kind": "staff",
+      "school": "destruction",
+      "quality": 1.2,
+      "upgrade_level": 0,
+      "cost_multiplier": 1.5,
+      "passive": null
+    },
+    {
+      "id": "synthetic_devotion_ring",
+      "kind": "ring",
+      "school": "restoration",
+      "quality": 1.0,
+      "upgrade_level": 0,
+      "cost_multiplier": 1.0,
+      "passive": {
+        "family": "holy",
+        "bonus": 0.25
+      }
+    }
+  ],
+  "spells": [
+    {
+      "id": "synthetic_ember_touch",
+      "school": "destruction",
+      "family": "fire",
+      "delivery": "instant",
+      "castable_from": [
+        "staff"
+      ],
+      "power_ratio": 0.6,
+      "cost_fraction": 0.04,
+      "timing_s": {
+        "release_at": 0.4,
+        "cancel_until": 0.15,
+        "recovery": 0.35,
+        "hyperarmour": [
+          0.25,
+          0.5
+        ]
+      },
+      "charge": null,
+      "area": null,
+      "payload": {
+        "elements": {
+          "fire": 1.0
+        },
+        "poise_pressure": 8,
+        "stance_pressure": 4
+      }
+    },
+    {
+      "id": "synthetic_firebolt",
+      "school": "destruction",
+      "family": "fire",
+      "delivery": "projectile",
+      "castable_from": [
+        "staff"
+      ],
+      "power_ratio": 0.8,
+      "cost_fraction": 0.08,
+      "timing_s": {
+        "release_at": 0.55,
+        "cancel_until": 0.2,
+        "recovery": 0.45,
+        "hyperarmour": [
+          0.3,
+          0.7
+        ]
+      },
+      "charge": null,
+      "area": null,
+      "payload": {
+        "elements": {
+          "fire": 1.0
+        },
+        "poise_pressure": 12,
+        "stance_pressure": 6
+      }
+    },
+    {
+      "id": "synthetic_flame_pool",
+      "school": "destruction",
+      "family": "fire",
+      "delivery": "area",
+      "castable_from": [
+        "ring"
+      ],
+      "power_ratio": 0.5,
+      "cost_fraction": 0.12,
+      "timing_s": {
+        "release_at": 0.7,
+        "cancel_until": 0.25,
+        "recovery": 0.5,
+        "hyperarmour": [
+          0.4,
+          0.9
+        ]
+      },
+      "charge": null,
+      "area": {
+        "radius_m": 4.0,
+        "duration_s": 3.0,
+        "tick_interval_s": 1.0
+      },
+      "payload": {
+        "elements": {
+          "fire": 1.0
+        },
+        "poise_pressure": 4,
+        "stance_pressure": 2
+      }
+    },
+    {
+      "id": "synthetic_ward_of_focus",
+      "school": "restoration",
+      "family": "focus",
+      "delivery": "self",
+      "castable_from": [
+        "ring"
+      ],
+      "power_ratio": 0.0,
+      "cost_fraction": 0.06,
+      "timing_s": {
+        "release_at": 0.5,
+        "cancel_until": 0.2,
+        "recovery": 0.4,
+        "hyperarmour": [
+          0.3,
+          0.6
+        ]
+      },
+      "charge": null,
+      "area": null,
+      "payload": {
+        "modifiers": [
+          {
+            "on": "caster",
+            "stat": "magicka_cost",
+            "operation": "multiply",
+            "magnitude": 0.9,
+            "duration_s": 20.0,
+            "stack_rule": "refresh",
+            "group": 1,
+            "priority": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "synthetic_sap_resolve",
+      "school": "illusion",
+      "family": "weaken",
+      "delivery": "instant",
+      "castable_from": [
+        "staff"
+      ],
+      "power_ratio": 0.0,
+      "cost_fraction": 0.05,
+      "timing_s": {
+        "release_at": 0.45,
+        "cancel_until": 0.2,
+        "recovery": 0.4,
+        "hyperarmour": [
+          0.3,
+          0.55
+        ]
+      },
+      "charge": null,
+      "area": null,
+      "payload": {
+        "modifiers": [
+          {
+            "on": "target",
+            "stat": "damage_taken",
+            "operation": "multiply",
+            "magnitude": 1.1,
+            "duration_s": 12.0,
+            "stack_rule": "strongest",
+            "group": 2,
+            "priority": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "synthetic_frost_touch",
+      "school": "destruction",
+      "family": "frost",
+      "delivery": "instant",
+      "castable_from": [
+        "staff"
+      ],
+      "power_ratio": 0.0,
+      "cost_fraction": 0.05,
+      "timing_s": {
+        "release_at": 0.45,
+        "cancel_until": 0.2,
+        "recovery": 0.4,
+        "hyperarmour": [
+          0.3,
+          0.55
+        ]
+      },
+      "charge": null,
+      "area": null,
+      "payload": {
+        "status_buildup": {
+          "frostbite": 30.0
+        },
+        "poise_pressure": 2
+      }
+    },
+    {
+      "id": "synthetic_charged_bolt",
+      "school": "destruction",
+      "family": "fire",
+      "delivery": "projectile",
+      "castable_from": [
+        "staff",
+        "ring"
+      ],
+      "power_ratio": 0.7,
+      "cost_fraction": 0.1,
+      "timing_s": {
+        "release_at": 0.5,
+        "cancel_until": 0.2,
+        "recovery": 0.5,
+        "hyperarmour": [
+          0.3,
+          0.9
+        ]
+      },
+      "charge": {
+        "max_s": 1.0,
+        "power_at_full": 1.8
+      },
+      "area": null,
+      "payload": {
+        "elements": {
+          "fire": 1.0
+        },
+        "poise_pressure": 16,
+        "stance_pressure": 8
+      }
+    }
+  ]
+}
