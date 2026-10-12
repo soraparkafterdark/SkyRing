@@ -69,6 +69,44 @@ class OwnerDataError(RuntimeError):
     pass
 
 
+def validate_action_list(actions: list[dict]) -> None:
+    if not actions:
+        raise OwnerDataError("action list is empty")
+    for i, action in enumerate(actions):
+        if not isinstance(action, dict):
+            raise OwnerDataError(f"action at index {i} is not a dictionary")
+        # Required keys
+        for key in ("id", "kind", "total", "stamina_cost", "hit_windows"):
+            if key not in action:
+                raise OwnerDataError(f"action at index {i} missing required key: {key}")
+        # Check types
+        if not isinstance(action["id"], (str, int)):
+            raise OwnerDataError(f"action at index {i} id must be string or integer")
+        if not isinstance(action["kind"], str):
+            raise OwnerDataError(f"action at index {i} kind must be string")
+        if not isinstance(action["total"], int):
+            raise OwnerDataError(f"action at index {i} total must be integer")
+        if not isinstance(action["stamina_cost"], int):
+            raise OwnerDataError(f"action at index {i} stamina_cost must be integer")
+        if action["stamina_cost"] < 0:
+            raise OwnerDataError(f"action at index {i} stamina_cost must be non-negative")
+        # Hit windows
+        if not isinstance(action["hit_windows"], list):
+            raise OwnerDataError(f"action at index {i} hit_windows must be a list")
+        seen_windows = set()
+        for j, window in enumerate(action["hit_windows"]):
+            if not isinstance(window, (list, tuple)) or len(window) != 2:
+                raise OwnerDataError(f"action at index {i}, hit window {j} must be a list or tuple of two integers")
+            start, end = window
+            if not isinstance(start, int) or not isinstance(end, int):
+                raise OwnerDataError(f"action at index {i}, hit window {j} start and end must be integers")
+            if start > end:
+                raise OwnerDataError(f"action at index {i}, hit window {j} start must be <= end")
+            if (start, end) in seen_windows:
+                raise OwnerDataError(f"action at index {i} has duplicate hit window range: ({start}, {end})")
+            seen_windows.add((start, end))
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as source:

@@ -232,5 +232,38 @@ class OwnerDataTests(unittest.TestCase):
                 owner_data.create_bundle(source, upstream, game, True, root / "bundle.zip", False)
 
 
+    def test_action_validation(self) -> None:
+        # (a) missing required keys
+        with self.assertRaisesRegex(owner_data.OwnerDataError, "action at index 0 missing required key: id"):
+            owner_data.validate_action_list([{"kind": "attack", "total": 5, "stamina_cost": 0, "hit_windows": [[1, 2]]}])
+        with self.assertRaisesRegex(owner_data.OwnerDataError, "action at index 0 missing required key: kind"):
+            owner_data.validate_action_list([{"id": 1, "total": 5, "stamina_cost": 0, "hit_windows": [[1, 2]]}])
+        with self.assertRaisesRegex(owner_data.OwnerDataError, "action at index 0 missing required key: total"):
+            owner_data.validate_action_list([{"id": 1, "kind": "attack", "stamina_cost": 0, "hit_windows": [[1, 2]]}])
+        with self.assertRaisesRegex(owner_data.OwnerDataError, "action at index 0 missing required key: stamina_cost"):
+            owner_data.validate_action_list([{"id": 1, "kind": "attack", "total": 5, "hit_windows": [[1, 2]]}])
+        with self.assertRaisesRegex(owner_data.OwnerDataError, "action at index 0 missing required key: hit_windows"):
+            owner_data.validate_action_list([{"id": 1, "kind": "attack", "total": 5, "stamina_cost": 0}])
+
+        # (b) negative stamina_cost rejected
+        with self.assertRaisesRegex(owner_data.OwnerDataError, "action at index 0 stamina_cost must be non-negative"):
+            owner_data.validate_action_list([{"id": 1, "kind": "attack", "total": 5, "stamina_cost": -1, "hit_windows": [[1, 2]]}])
+
+        # (c) duplicate hit window ranges rejected
+        with self.assertRaisesRegex(owner_data.OwnerDataError, r"action at index 0 has duplicate hit window range: \(1, 2\)"):
+            owner_data.validate_action_list([{"id": 1, "kind": "attack", "total": 5, "stamina_cost": 0, "hit_windows": [[1, 2], [1, 2]]}])
+
+        # (d) empty actions list rejected
+        with self.assertRaisesRegex(owner_data.OwnerDataError, "action list is empty"):
+            owner_data.validate_action_list([])
+
+        # (e) valid action list accepted
+        valid_actions = [
+            {"id": 1, "kind": "attack", "total": 10, "stamina_cost": 5, "hit_windows": [[2, 4], [6, 8]]},
+            {"id": "special", "kind": "skill", "total": 20, "stamina_cost": 0, "hit_windows": [[5, 5]]},
+        ]
+        # Should not raise
+        owner_data.validate_action_list(valid_actions)
+
 if __name__ == "__main__":
     unittest.main()
