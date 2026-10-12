@@ -184,12 +184,19 @@ fn recorded_input_world_trace_and_replay_are_byte_stable() {
 #[test]
 fn decoder_fails_closed_on_unknown_versions_and_trailing_bytes() {
     let trace = recorded_trace(false);
-    let mut unknown_version = trace.canonical_bytes();
-    unknown_version[8..10].copy_from_slice(&2u16.to_le_bytes());
-    assert!(matches!(
-        er_combat_core::trace::CombatTrace::from_canonical_bytes(&unknown_version),
-        Err(TraceError::UnsupportedVersion { version: 2 })
-    ));
+    // Version 1 had no stamina fields in the world record; reading it as version 2 would
+    // misalign every later byte, so it must be refused, as must a version from the future.
+    for version in [1u16, 3u16] {
+        let mut unknown_version = trace.canonical_bytes();
+        unknown_version[8..10].copy_from_slice(&version.to_le_bytes());
+        assert!(
+            matches!(
+                er_combat_core::trace::CombatTrace::from_canonical_bytes(&unknown_version),
+                Err(TraceError::UnsupportedVersion { version: v }) if v == version
+            ),
+            "version {version} must fail closed"
+        );
+    }
 
     let mut trailing = trace.canonical_bytes();
     trailing.push(0xAA);

@@ -5,8 +5,8 @@
 #include "Settings.h"
 
 static_assert(sizeof(ErInput) == 32);
-static_assert(sizeof(ErWorld) == 36);
-static_assert(sizeof(ErOutput) == 224);
+static_assert(sizeof(ErWorld) == 44);
+static_assert(sizeof(ErOutput) == 228);
 static_assert(offsetof(ErOutput, sweep_a) == 88);
 
 namespace

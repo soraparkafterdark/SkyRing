@@ -186,6 +186,11 @@ pub struct Player {
     pub yaw: f32,
     pub hp: f32,
     pub stamina: f32,
+    /// Stamina taken since the player was created, in the simulation's own units. Only ever
+    /// grows, so a host can report what one update spent without regeneration hiding it.
+    pub spent_total: f64,
+    /// The host supplies the pool each update, so the player does not regenerate it.
+    pub host_pool: bool,
     pub state: State,
     pub speed: f32,
     pub move_dir: Vec3,
@@ -225,6 +230,8 @@ impl Player {
             yaw: 0.0,
             hp: MAX_HP,
             stamina: MAX_STAMINA,
+            spent_total: 0.0,
+            host_pool: false,
             state: State::Ground,
             speed: 0.0,
             move_dir: Vec3::Z,
@@ -453,7 +460,8 @@ impl Player {
             State::Dead { .. } => false,
         };
 
-        if regen {
+        // A host that owns the pool (Skyrim) also owns regeneration, perks and potions included.
+        if regen && !self.host_pool {
             let mult = if self.guarding { GUARD_REGEN_MULT } else { 1.0 };
             self.stamina = (self.stamina + STAMINA_REGEN * mult * DT).min(MAX_STAMINA);
         }
@@ -587,9 +595,7 @@ impl Player {
         if self.sprinting {
             self.crouching = false;
             if self.in_combat {
-                self.stamina -= SPRINT_DRAIN * DT;
-                if self.stamina <= 0.0 {
-                    self.stamina = 0.0;
+                if self.debit(SPRINT_DRAIN * DT) {
                     self.sprinting = false;
                     self.sprint_spent = true;
                 }
@@ -922,7 +928,16 @@ impl Player {
     }
 
     fn spend(&mut self, cost: f32) {
-        self.stamina = (self.stamina - cost).max(0.0);
+        self.debit(cost);
+    }
+
+    /// Takes `cost` from the pool, never below zero, records what was actually taken, and says
+    /// whether the pool is now empty. Every stamina cost goes through here.
+    fn debit(&mut self, cost: f32) -> bool {
+        let before = self.stamina.max(0.0);
+        self.stamina = (before - cost).max(0.0);
+        self.spent_total += f64::from(before - self.stamina);
+        self.stamina <= 0.0
     }
 
     fn start(&mut self, id: ActionId) {
@@ -1049,9 +1064,7 @@ impl Player {
         let toward = Vec3::new(hit.from.x - self.pos.x, 0.0, hit.from.z - self.pos.z);
         let in_arc = toward.normalize_or_zero().dot(self.facing()) >= GUARD_ARC_DEG.to_radians().cos();
         if self.guard_up() && in_arc {
-            self.stamina -= hit.stamina * GUARD_STAMINA_TAKEN;
-            if self.stamina <= 0.0 {
-                self.stamina = 0.0;
+            if self.debit(hit.stamina * GUARD_STAMINA_TAKEN) {
                 self.start(ActionId::GuardBreak);
                 return HitResult::GuardBroken;
             }

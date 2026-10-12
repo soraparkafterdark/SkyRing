@@ -38,6 +38,11 @@ typedef struct ErWorld {
     uint8_t has_target;
     ErVec3 target;
     uint8_t in_combat;
+    /* The actor's live stamina and maximum, in Skyrim's own units. Skyrim owns the pool: with
+     * stamina_max > 0 (and both finite) the core takes its pool from these every update and
+     * does not regenerate it; with stamina_max 0 it keeps an internal pool. */
+    float stamina_current;
+    float stamina_max;
 } ErWorld;
 
 typedef enum ErState : uint32_t {
@@ -93,6 +98,9 @@ typedef struct ErOutput {
     /* Pressure on the separate stance meter, relative to a light attack. */
     float stance_multiplier;
     float hit_stop;
+    /* Stamina spent since the previous update, in ErWorld.stamina_max's units (the core's own
+     * when no pool was supplied): costs, combat sprinting and guarded hits. Skyrim takes it. */
+    float stamina_spent;
 } ErOutput;
 
 typedef enum ErHurt : uint32_t {
@@ -146,20 +154,22 @@ static_assert(offsetof(ErInput, guard) == 24);
 static_assert(offsetof(ErInput, crouch) == 27);
 static_assert(offsetof(ErInput, two_hand_left) == 31);
 
-static_assert(sizeof(ErWorld) == 36);
+static_assert(sizeof(ErWorld) == 44);
 static_assert(alignof(ErWorld) == 4);
 static_assert(offsetof(ErWorld, position) == 0);
 static_assert(offsetof(ErWorld, ground_z) == 12);
 static_assert(offsetof(ErWorld, has_target) == 16);
 static_assert(offsetof(ErWorld, target) == 20);
 static_assert(offsetof(ErWorld, in_combat) == 32);
+static_assert(offsetof(ErWorld, stamina_current) == 36);
+static_assert(offsetof(ErWorld, stamina_max) == 40);
 
 static_assert(sizeof(ErState) == 4);
 static_assert(ER_STATE_GROUND == 0 && ER_STATE_ACTION == 1 && ER_STATE_AIR == 2 && ER_STATE_DEAD == 3);
 static_assert(sizeof(ErAction) == 4);
 static_assert(ER_ACTION_NONE == 0 && ER_ACTION_HURT == 19 && ER_ACTION_COUNT == 20);
 
-static_assert(sizeof(ErOutput) == 224);
+static_assert(sizeof(ErOutput) == 228);
 static_assert(alignof(ErOutput) == 4);
 static_assert(offsetof(ErOutput, position) == 0);
 static_assert(offsetof(ErOutput, heading) == 12);
@@ -180,6 +190,7 @@ static_assert(offsetof(ErOutput, hit_radius) == 208);
 static_assert(offsetof(ErOutput, damage_multiplier) == 212);
 static_assert(offsetof(ErOutput, stance_multiplier) == 216);
 static_assert(offsetof(ErOutput, hit_stop) == 220);
+static_assert(offsetof(ErOutput, stamina_spent) == 224);
 
 static_assert(sizeof(ErHurt) == 4);
 static_assert(ER_HURT_SMALL == 0 && ER_HURT_KNOCKDOWN == 3 && ER_HURT_COUNT == 4);

@@ -12,7 +12,7 @@
 
 use glam::{Vec2, Vec3};
 
-use crate::sim::data::{ActionId, AttackKind, Dir, HurtLevel, DT};
+use crate::sim::data::{ActionId, AttackKind, Dir, HurtLevel, DT, MAX_STAMINA};
 use crate::sim::level::Level;
 use crate::sim::player::{Button, HitResult, Incoming, Input, Player, State, SWEEP_STEPS};
 
@@ -87,6 +87,12 @@ pub struct ErWorld {
     pub target: ErVec3,
     /// A hostile actor is near: sprinting costs stamina.
     pub in_combat: u8,
+    /// The actor's live stamina and its maximum, in Skyrim's own units. Skyrim owns the pool:
+    /// when `stamina_max` is above zero (and both values are finite) the core takes its pool
+    /// from these every update, and `ErOutput::stamina_spent` says what it spent. With
+    /// `stamina_max` zero, as `ErWorld::default()` has it, the core keeps an internal pool.
+    pub stamina_current: f32,
+    pub stamina_max: f32,
 }
 
 /// What the player is doing, for the bridge to pick animations.
@@ -176,6 +182,10 @@ pub struct ErOutput {
     pub stance_multiplier: f32,
     /// Seconds both sides should freeze for if this swing lands.
     pub hit_stop: f32,
+    /// Stamina the core spent during this update, for Skyrim to take from its own pool: in the
+    /// units of `ErWorld::stamina_max` when the host supplied a pool, else the core's own.
+    /// Rolls, backsteps, jumps, attack hits, combat sprinting and guarded hits all count.
+    pub stamina_spent: f32,
 }
 
 /// How hard an incoming hit is.
@@ -221,11 +231,16 @@ pub struct ErCombat {
     serial: u32,
     /// The action playing after the last tick, to spot new ones.
     last_action: Option<(ActionId, f32)>,
+    /// What the most recent `update` reported spending, in the host's stamina units.
+    last_spent: f32,
+    /// `Player::spent_total` as of that update. A cost taken between updates (a guarded hit
+    /// arrives through `er_receive_hit`) is reported by the next one.
+    reported_spent: f64,
 }
 
 impl ErCombat {
     pub fn new(position: ErVec3) -> Self {
-        Self { player: Player::new(position.to_sim()), level: Level::flat(), pending: 0.0, serial: 0, last_action: None }
+        Self { player: Player::new(position.to_sim()), level: Level::flat(), pending: 0.0, serial: 0, last_action: None, last_spent: 0.0, reported_spent: 0.0 }
     }
 
     pub fn update(&mut self, dt: f32, input: &ErInput, world: &ErWorld) -> ErOutput {
@@ -233,6 +248,15 @@ impl ErCombat {
         self.player.pos = world.position.to_sim();
         self.level.ground = Some(world.ground_z / UNITS_PER_METRE);
         let target = (world.has_target != 0).then(|| world.target.to_sim());
+
+        // Skyrim owns the stamina pool. Take it every update, so whatever Skyrim did to it
+        // (regeneration, potions, perks, a save load) is what the simulation acts on.
+        let host_pool = world.stamina_max.is_finite() && world.stamina_max > 0.0 && world.stamina_current.is_finite();
+        let unit = if host_pool { world.stamina_max / MAX_STAMINA } else { 1.0 };
+        self.player.host_pool = host_pool;
+        if host_pool {
+            self.player.stamina = (world.stamina_current / world.stamina_max).clamp(0.0, 1.0) * MAX_STAMINA;
+        }
 
         self.pending = (self.pending + dt.max(0.0)).min(DT * MAX_TICKS_PER_FRAME as f32);
         let mut first = sim_input(input);
@@ -243,6 +267,8 @@ impl ErCombat {
             first = held;
             self.note_new_action();
         }
+        self.last_spent = ((self.player.spent_total - self.reported_spent) as f32) * unit;
+        self.reported_spent = self.player.spent_total;
         self.output()
     }
 
@@ -351,6 +377,7 @@ impl ErCombat {
             damage_multiplier: hit.map_or(0.0, |h| crate::balance::damage_multiplier(h.kind, h.mv)),
             stance_multiplier: hit.map_or(0.0, |h| crate::balance::stance_multiplier(h.kind)),
             hit_stop: hit.map_or(0.0, |h| h.stop * crate::sim::data::HIT_STOP_SCALE),
+            stamina_spent: self.last_spent,
         }
     }
 }
@@ -685,7 +712,9 @@ mod layout {
         assert_eq!(offset_of!(ErInput, guard), 24);
         assert_eq!(offset_of!(ErInput, crouch), 27);
         assert_eq!(offset_of!(ErInput, two_hand_left), 31);
-        assert_eq!(size_of::<ErWorld>(), 36);
+        assert_eq!(size_of::<ErWorld>(), 44);
+        assert_eq!(offset_of!(ErWorld, stamina_current), 36);
+        assert_eq!(offset_of!(ErWorld, stamina_max), 40);
         assert_eq!(std::mem::align_of::<ErWorld>(), 4);
         assert_eq!(offset_of!(ErWorld, position), 0);
         assert_eq!(offset_of!(ErWorld, ground_z), 12);
@@ -698,7 +727,7 @@ mod layout {
         assert_eq!(size_of::<ErAction>(), 4);
         assert_eq!(ErAction::None as u32, 0);
         assert_eq!(ErAction::Hurt as u32, 19);
-        assert_eq!(size_of::<ErOutput>(), 224);
+        assert_eq!(size_of::<ErOutput>(), 228);
         assert_eq!(std::mem::align_of::<ErOutput>(), 4);
         assert_eq!(offset_of!(ErOutput, position), 0);
         assert_eq!(offset_of!(ErOutput, heading), 12);
@@ -719,6 +748,7 @@ mod layout {
         assert_eq!(offset_of!(ErOutput, damage_multiplier), 212);
         assert_eq!(offset_of!(ErOutput, stance_multiplier), 216);
         assert_eq!(offset_of!(ErOutput, hit_stop), 220);
+        assert_eq!(offset_of!(ErOutput, stamina_spent), 224);
         assert_eq!(size_of::<ErHurt>(), 4);
         assert_eq!(ErHurt::Small as u32, 0);
         assert_eq!(ErHurt::Knockdown as u32, 3);

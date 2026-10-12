@@ -50,7 +50,7 @@ int main() {
     END_STRUCT();
     BEGIN_STRUCT(ErWorld);
     FIELD(ErWorld, position); FIELD(ErWorld, ground_z); FIELD(ErWorld, has_target); FIELD(ErWorld, target);
-    FIELD(ErWorld, in_combat);
+    FIELD(ErWorld, in_combat); FIELD(ErWorld, stamina_current); FIELD(ErWorld, stamina_max);
     END_STRUCT();
     BEGIN_STRUCT(ErOutput);
     FIELD(ErOutput, position); FIELD(ErOutput, heading); FIELD(ErOutput, state); FIELD(ErOutput, action);
@@ -60,6 +60,7 @@ int main() {
     FIELD(ErOutput, interruptible); FIELD(ErOutput, stamina); FIELD(ErOutput, hit_live);
     FIELD(ErOutput, sweep_a); FIELD(ErOutput, sweep_b); FIELD(ErOutput, hit_radius);
     FIELD(ErOutput, damage_multiplier); FIELD(ErOutput, stance_multiplier); FIELD(ErOutput, hit_stop);
+    FIELD(ErOutput, stamina_spent);
     END_STRUCT();
 
     first_item = true;

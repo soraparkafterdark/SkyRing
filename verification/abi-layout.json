@@ -146,12 +146,13 @@
           "speed": 68,
           "sprinting": 72,
           "stamina": 80,
+          "stamina_spent": 224,
           "stance_multiplier": 216,
           "state": 16,
           "sweep_a": 88,
           "sweep_b": 148
         },
-        "size": 224
+        "size": 228
       },
       "ErVec3": {
         "align": 4,
@@ -169,12 +170,14 @@
           "has_target": 16,
           "in_combat": 32,
           "position": 0,
+          "stamina_current": 36,
+          "stamina_max": 40,
           "target": 20
         },
-        "size": 36
+        "size": 44
       }
     }
   },
-  "revision": 2,
+  "revision": 3,
   "schema_version": 1
 }

@@ -11,8 +11,8 @@ use crate::ffi::{ErAction, ErCombat, ErHitResult, ErHurt, ErInput, ErOutput, ErV
 
 const TRACE_MAGIC: &[u8; 8] = b"SKYTRC01";
 const EVENT_MAGIC: &[u8; 8] = b"SKYEVT01";
-const TRACE_VERSION: u16 = 1;
-const EVENT_VERSION: u16 = 1;
+const TRACE_VERSION: u16 = 2;
+const EVENT_VERSION: u16 = 2;
 const FIXED_DELTA_SECONDS: f32 = 1.0 / 60.0;
 
 #[repr(u8)]
@@ -284,6 +284,8 @@ pub enum CombatEvent {
         has_target: bool,
         target: ErVec3,
         in_combat: bool,
+        stamina_current: f32,
+        stamina_max: f32,
     },
     ActionStarted {
         tick: u64,
@@ -322,6 +324,12 @@ pub enum CombatEvent {
         before: f32,
         after: f32,
     },
+    /// Stamina the core spent during this tick's update, in the host's units, for Skyrim to
+    /// take from its own pool.
+    StaminaSpent {
+        tick: u64,
+        amount: f32,
+    },
     ConsequenceResolved {
         tick: u64,
         delivery_id: u64,
@@ -357,6 +365,8 @@ impl CombatEvent {
                 has_target,
                 target,
                 in_combat,
+                stamina_current,
+                stamina_max,
             } => {
                 put_u8(bytes, 2);
                 put_u64(bytes, *tick);
@@ -365,6 +375,8 @@ impl CombatEvent {
                 put_u8(bytes, *has_target as u8);
                 put_vec3(bytes, *target);
                 put_u8(bytes, *in_combat as u8);
+                put_f32(bytes, *stamina_current);
+                put_f32(bytes, *stamina_max);
             }
             Self::ActionStarted {
                 tick,
@@ -457,6 +469,11 @@ impl CombatEvent {
                 put_u32(bytes, *action_serial);
                 put_f32(bytes, *remaining_seconds);
             }
+            Self::StaminaSpent { tick, amount } => {
+                put_u8(bytes, 13);
+                put_u64(bytes, *tick);
+                put_f32(bytes, *amount);
+            }
             Self::PerspectiveObserved { tick, perspective } => {
                 put_u8(bytes, 12);
                 put_u64(bytes, *tick);
@@ -515,6 +532,8 @@ impl TraceReplay {
                 has_target: frame.world.has_target != 0,
                 target: frame.world.target,
                 in_combat: frame.world.in_combat != 0,
+                stamina_current: frame.world.stamina_current,
+                stamina_max: frame.world.stamina_max,
             });
 
             let output = combat.update(FIXED_DELTA_SECONDS, &frame.input, &frame.world);
@@ -602,6 +621,12 @@ fn emit_output_events(
         });
         *previous_stamina = output.stamina;
     }
+    if output.stamina_spent != 0.0 {
+        events.push(CombatEvent::StaminaSpent {
+            tick,
+            amount: output.stamina_spent,
+        });
+    }
     if output.hit_live != 0 {
         events.push(CombatEvent::ContactObserved {
             tick,
@@ -634,6 +659,8 @@ fn validate_frame(tick: u64, frame: &TraceTick) -> Result<(), TraceError> {
         ("input.move_y", frame.input.move_y),
         ("input.camera_heading", frame.input.camera_heading),
         ("world.ground_z", frame.world.ground_z),
+        ("world.stamina_current", frame.world.stamina_current),
+        ("world.stamina_max", frame.world.stamina_max),
     ] {
         validate_f32(tick, field, value)?;
     }
@@ -723,6 +750,8 @@ fn put_world(bytes: &mut Vec<u8>, world: &ErWorld) {
     put_u8(bytes, world.has_target);
     put_vec3(bytes, world.target);
     put_u8(bytes, world.in_combat);
+    put_f32(bytes, world.stamina_current);
+    put_f32(bytes, world.stamina_max);
 }
 
 fn put_vec3(bytes: &mut Vec<u8>, value: ErVec3) {
@@ -861,6 +890,8 @@ impl<'a> ByteReader<'a> {
             has_target: self.u8()?,
             target: self.vec3()?,
             in_combat: self.u8()?,
+            stamina_current: self.f32()?,
+            stamina_max: self.f32()?,
         })
     }
 

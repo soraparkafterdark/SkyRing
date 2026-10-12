@@ -46,11 +46,11 @@ fn main() {
             ErInput: move_x, move_y, camera_heading, dodge, jump, light, heavy, guard, crouch, walk, lock,
             two_hand_right, two_hand_left
         ),
-        layout!(ErWorld: position, ground_z, has_target, target, in_combat),
+        layout!(ErWorld: position, ground_z, has_target, target, in_combat, stamina_current, stamina_max),
         layout!(
             ErOutput: position, heading, state, action, action_frame, action_kind, action_dir, action_serial,
             speed, sprinting, crouching, guarding, invincible, airborne, interruptible, stamina, hit_live,
-            sweep_a, sweep_b, hit_radius, damage_multiplier, stance_multiplier, hit_stop
+            sweep_a, sweep_b, hit_radius, damage_multiplier, stance_multiplier, hit_stop, stamina_spent
         ),
     ];
     let enums = [

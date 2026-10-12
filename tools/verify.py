@@ -250,8 +250,8 @@ def check_c_abi(cxx: str, temporary: Path) -> str:
         "#include \"er_combat.h\"\n"
         "#include <cstddef>\n"
         "static_assert(sizeof(ErInput) == 32);\n"
-        "static_assert(sizeof(ErWorld) == 36);\n"
-        "static_assert(sizeof(ErOutput) == 224);\n"
+        "static_assert(sizeof(ErWorld) == 44);\n"
+        "static_assert(sizeof(ErOutput) == 228);\n"
         "static_assert(offsetof(ErOutput, sweep_a) == 88);\n"
         "int main() {}\n",
         encoding="utf-8",
