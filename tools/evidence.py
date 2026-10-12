@@ -119,6 +119,10 @@ def validate(manifest: Dict[str, Any]) -> List[str]:
         errors.append("missing required field: git_commit")
     elif not isinstance(manifest["git_commit"], str) or len(manifest["git_commit"]) != 40:
         errors.append("git_commit must be a 40-character SHA-1 hex string")
+    else:
+        # Validate it's lowercase hex
+        if not all(c in '0123456789abcdef' for c in manifest["git_commit"]):
+            errors.append("git_commit must be a 40-character lowercase hex string")
 
     # Check data_fingerprint field
     if "data_fingerprint" not in manifest:
@@ -126,11 +130,9 @@ def validate(manifest: Dict[str, Any]) -> List[str]:
     elif not isinstance(manifest["data_fingerprint"], str) or len(manifest["data_fingerprint"]) != 64:
         errors.append("data_fingerprint must be a 64-character SHA-256 hex string")
     else:
-        # Validate it's valid hex (lowercase only for SHA-256)
-        try:
-            int(manifest["data_fingerprint"], 16)
-        except ValueError:
-            errors.append("data_fingerprint must be a 64-character SHA-256 hex string")
+        # Validate it's lowercase hex
+        if not all(c in '0123456789abcdef' for c in manifest["data_fingerprint"]):
+            errors.append("data_fingerprint must be a 64-character lowercase hex string")
 
     # Check profile field
     if "profile" not in manifest:

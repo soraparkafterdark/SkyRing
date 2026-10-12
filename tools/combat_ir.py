@@ -98,8 +98,19 @@ def validate(doc: Dict[str, Any]) -> List[str]:
                 errors.append(
                     'provenance.data_fingerprint must be a non-null, non-empty string when source is "owner"'
                 )
-        # Note: data_fingerprint can be null (None) for synthetic, or a non-empty
-        # string for owner (enforced above).
+            else:
+                # Validate it's a 64-character lowercase SHA-256 hex digest,
+                # consistent with evidence.py.
+                if len(data_fingerprint) != 64:
+                    errors.append(
+                        'provenance.data_fingerprint must be a 64-character lowercase hex string when source is "owner"'
+                    )
+                elif not all(c in "0123456789abcdef" for c in data_fingerprint):
+                    errors.append(
+                        'provenance.data_fingerprint must be a 64-character lowercase hex string when source is "owner"'
+                    )
+        # Note: data_fingerprint can be null (None) for synthetic, or a 64-char
+        # lowercase hex string for owner (enforced above).
 
     # units
     units = doc.get("units")
@@ -173,11 +184,22 @@ def validate(doc: Dict[str, Any]) -> List[str]:
                 errors.append(f'actions[{i}].id "{action_id}" must be unique')
             else:
                 seen_ids.add(action_id)
+                # Reject unknown attack kinds so they cannot silently enter the IR
+                # document and later hit translate() at runtime.
+                try:
+                    kind = AttackKind(action_id)
+                except ValueError:
+                    kind = None
+                if kind is None or kind not in _ENVELOPES:
+                    errors.append(
+                        f'actions[{i}].id "{action_id}" must be a known AttackKind'
+                    )
 
             # duration_s
             duration = action.get("duration_s")
             if not isinstance(duration, (int, float)) or duration <= 0:
                 errors.append(f'actions[{i}].duration_s must be a number > 0')
+                duration = None  # Mark as invalid so window validation can skip bounds check
 
             # stamina_cost
             stamina = action.get("stamina_cost")
@@ -197,7 +219,7 @@ def validate(doc: Dict[str, Any]) -> List[str]:
                     if not (isinstance(start, (int, float)) and isinstance(end, (int, float))):
                         errors.append(f'actions[{i}].{name}[{j}] start and end must be numbers')
                         continue
-                    if not (0 <= start < end <= duration):
+                    if duration is not None and not (0 <= start < end <= duration):
                         errors.append(
                             f'actions[{i}].{name}[{j}] must satisfy 0 <= start < end <= duration_s ({duration})'
                         )
@@ -228,7 +250,7 @@ def validate(doc: Dict[str, Any]) -> List[str]:
                     if not (isinstance(t_s, (int, float)) and isinstance(dx, (int, float)) and isinstance(dy, (int, float))):
                         errors.append(f'actions[{i}].root_motion_m[{k}] all elements must be numbers')
                         continue
-                    if not (0 <= t_s <= duration):
+                    if duration is not None and not (0 <= t_s <= duration):
                         errors.append(f'actions[{i}].root_motion_m[{k}] t_s must be within [0, duration_s]')
                     if t_s <= prev_time:
                         errors.append(f'actions[{i}].root_motion_m[{k}] t_s must be strictly increasing')
@@ -315,7 +337,11 @@ def translate(kind: str, motion_value: Any) -> Dict[str, Any]:
     clamped into the role's damage envelope. The returned multiplier is always a
     finite float inside [damage_min, damage_max].
     """
-    envelope = _ENVELOPES.get(AttackKind(kind))
+    try:
+        attack_kind = AttackKind(kind)
+    except ValueError:
+        attack_kind = None
+    envelope = _ENVELOPES.get(attack_kind) if attack_kind is not None else None
     if envelope is None:
         return {
             "kind": kind,

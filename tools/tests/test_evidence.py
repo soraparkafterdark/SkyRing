@@ -252,6 +252,26 @@ class ValidationTests(unittest.TestCase):
         errors = evidence.validate(manifest)
         self.assertTrue(any("data_fingerprint must be a 64-character" in e for e in errors))
 
+    def test_uppercase_git_commit_rejected(self) -> None:
+        manifest = {
+            "git_commit": "A" * 40,  # uppercase hex
+            "data_fingerprint": "a" * 64,
+            "profile": "local",
+            "checks": [{"name": "test", "status": "PASS"}],
+        }
+        errors = evidence.validate(manifest)
+        self.assertTrue(any("git_commit must be a 40-character lowercase hex" in e for e in errors))
+
+    def test_uppercase_data_fingerprint_rejected(self) -> None:
+        manifest = {
+            "git_commit": "a" * 40,
+            "data_fingerprint": "F" * 64,  # uppercase hex
+            "profile": "local",
+            "checks": [{"name": "test", "status": "PASS"}],
+        }
+        errors = evidence.validate(manifest)
+        self.assertTrue(any("data_fingerprint must be a 64-character lowercase hex" in e for e in errors))
+
     def test_invalid_profile_rejected(self) -> None:
         manifest = {
             "git_commit": "a" * 40,
