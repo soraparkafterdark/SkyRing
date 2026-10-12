@@ -70,9 +70,51 @@ def validate(doc: Dict[str, Any]) -> List[str]:
     else:
         seen_ids = set()
         for i, action in enumerate(actions):
+
+            # Type guard: action must be a dict before accessing its keys
             if not isinstance(action, dict):
                 errors.append(f"actions[{i}] must be an object")
                 continue
+
+            # elements (ElementalProfile shares)
+            elements = action.get("elements")
+            if elements is not None:
+                if not isinstance(elements, dict):
+                    errors.append(f'actions[{i}].elements must be an object')
+                else:
+                    valid_keys = {"physical", "magic", "fire", "lightning", "holy"}
+                    total = 0.0
+                    for el_name, share in elements.items():
+                        if el_name not in valid_keys:
+                            errors.append(
+                                f'actions[{i}].elements has unknown element "{el_name}"'
+                            )
+                        if not isinstance(share, (int, float)) or isinstance(share, bool):
+                            errors.append(
+                                f'actions[{i}].elements["{el_name}"] must be a number'
+                            )
+                            continue
+                        s = float(share)
+                        if s != s:  # NaN
+                            errors.append(
+                                f'actions[{i}].elements["{el_name}"] must be a finite number'
+                            )
+                            continue
+                        if s < 0.0:
+                            errors.append(
+                                f'actions[{i}].elements["{el_name}"] share must not be negative'
+                            )
+                        if s > 1.0:
+                            errors.append(
+                                f'actions[{i}].elements["{el_name}"] share must not exceed 1.0'
+                            )
+                        total += s
+                    epsilon = 1e-6
+                    if total > 1.0 + epsilon:
+                        errors.append(
+                            f'actions[{i}].elements shares must sum to at most 1.0 (got {total})'
+                        )
+            # missing elements: treated as empty (all-zero) profile — valid
 
             # id
             action_id = action.get("id")

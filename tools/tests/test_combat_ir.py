@@ -151,6 +151,55 @@ class CombatIRTests(unittest.TestCase):
         finally:
             Path(invalid_path).unlink(missing_ok=True)
 
+    def test_elements_exceed_one(self) -> None:
+        # individual share > 1.0
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["elements"] = {"fire": 1.5}
+        errors = combat_ir.validate(doc)
+        self.assertTrue(any("exceed 1.0" in e for e in errors),
+                        f"Expected error for share > 1.0, got: {errors}")
+
+    def test_elements_negative_rejected(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["elements"] = {"fire": -0.3}
+        errors = combat_ir.validate(doc)
+        self.assertTrue(any("non-negative" in e or "negative" in e for e in errors),
+                        f"Expected error for negative share, got: {errors}")
+
+    def test_elements_total_over_one(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["elements"] = {"fire": 0.6, "lightning": 0.6}
+        errors = combat_ir.validate(doc)
+        self.assertTrue(any("sum" in e.lower() and "1.0" in e for e in errors),
+                        f"Expected error for total > 1.0, got: {errors}")
+
+    def test_elements_sum_exactly_one_accepted(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["elements"] = {"fire": 0.5, "lightning": 0.5}
+        errors = combat_ir.validate(doc)
+        self.assertEqual([e for e in errors if "elements" in e], [],
+                         f"Expected no element errors for valid profile, got: {errors}")
+
+    def test_elements_missing_treated_as_empty(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        # ensure no elements key on any action
+        for action in doc["actions"]:
+            action.pop("elements", None)
+        errors = combat_ir.validate(doc)
+        self.assertEqual([e for e in errors if "elements" in e], [],
+                         f"Expected no element errors for missing elements, got: {errors}")
+
+    def test_non_dict_action_rejected(self) -> None:
+        # Regression test: non-dict action should return a clean error, not crash
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"] = ["not-a-dict", 123, None, [1, 2, 3]]
+        errors = combat_ir.validate(doc)
+        # Should return errors for each non-dict action
+        self.assertTrue(len(errors) >= 4, f"Expected at least 4 errors, got: {errors}")
+        for i in range(4):
+            self.assertTrue(any(f"actions[{i}] must be an object" in e for e in errors),
+                            f"Expected error for actions[{i}], got: {errors}")
+
 
 if __name__ == "__main__":
     unittest.main()
