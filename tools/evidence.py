@@ -76,6 +76,59 @@ def fingerprint(paths: List[Path], repo: Path) -> Dict[str, Any]:
     }
 
 
+VALID_PROFILES = {"local", "source", "release"}
+
+
+class ValidationError(RuntimeError):
+    """Errors from manifest validation."""
+
+
+def validate(manifest: Dict[str, Any]) -> List[str]:
+    """Validate a runtime evidence manifest.
+
+    Returns a list of error strings; an empty list means valid.
+    """
+    errors = []
+
+    # Check required git_commit field
+    if "git_commit" not in manifest:
+        errors.append("missing required field: git_commit")
+    elif not isinstance(manifest["git_commit"], str) or len(manifest["git_commit"]) != 40:
+        errors.append("git_commit must be a 40-character SHA-1 hex string")
+
+    # Check data_fingerprint field
+    if "data_fingerprint" not in manifest:
+        errors.append("missing required field: data_fingerprint")
+    elif not isinstance(manifest["data_fingerprint"], str) or len(manifest["data_fingerprint"]) != 64:
+        errors.append("data_fingerprint must be a 64-character SHA-256 hex string")
+    else:
+        # Validate it's valid hex (lowercase only for SHA-256)
+        try:
+            int(manifest["data_fingerprint"], 16)
+        except ValueError:
+            errors.append("data_fingerprint must be a 64-character SHA-256 hex string")
+
+    # Check profile field
+    if "profile" not in manifest:
+        errors.append("missing required field: profile")
+    elif manifest["profile"] not in VALID_PROFILES:
+        errors.append(f"invalid profile: {manifest['profile']!r}; must be one of {sorted(VALID_PROFILES)}")
+
+    # Check checks array
+    if "checks" not in manifest:
+        errors.append("missing required field: checks")
+    elif not isinstance(manifest["checks"], list):
+        errors.append("checks must be an array")
+    else:
+        for i, check in enumerate(manifest["checks"]):
+            if not isinstance(check, dict):
+                errors.append(f"checks[{i}] must be an object")
+            elif "name" not in check or "status" not in check:
+                errors.append(f"checks[{i}] missing required 'name' or 'status' field")
+
+    return errors
+
+
 def _is_tracked(path: Path, repo: Path) -> bool:
     """Return True if path is tracked by git."""
     try:
