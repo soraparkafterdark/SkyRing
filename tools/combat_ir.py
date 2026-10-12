@@ -98,8 +98,19 @@ def validate(doc: Dict[str, Any]) -> List[str]:
                 errors.append(
                     'provenance.data_fingerprint must be a non-null, non-empty string when source is "owner"'
                 )
-        # Note: data_fingerprint can be null (None) for synthetic, or a non-empty
-        # string for owner (enforced above).
+            else:
+                # Validate it's a 64-character lowercase SHA-256 hex digest,
+                # consistent with evidence.py.
+                if len(data_fingerprint) != 64:
+                    errors.append(
+                        'provenance.data_fingerprint must be a 64-character lowercase hex string when source is "owner"'
+                    )
+                elif not all(c in "0123456789abcdef" for c in data_fingerprint):
+                    errors.append(
+                        'provenance.data_fingerprint must be a 64-character lowercase hex string when source is "owner"'
+                    )
+        # Note: data_fingerprint can be null (None) for synthetic, or a 64-char
+        # lowercase hex string for owner (enforced above).
 
     # units
     units = doc.get("units")

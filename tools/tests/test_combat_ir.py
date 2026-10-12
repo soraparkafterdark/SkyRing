@@ -103,7 +103,7 @@ class CombatIRTests(unittest.TestCase):
     def test_owner_valid_data_fingerprint_accepted(self) -> None:
         doc = json.loads(json.dumps(self.valid_doc))
         doc["provenance"]["source"] = "owner"
-        doc["provenance"]["data_fingerprint"] = "a1b2c3d4e5f6"
+        doc["provenance"]["data_fingerprint"] = "a1b2c3d4e5f6" + "0" * 52
         errors = combat_ir.validate(doc)
         self.assertEqual(
             [e for e in errors if "data_fingerprint" in e],
@@ -120,6 +120,41 @@ class CombatIRTests(unittest.TestCase):
             [e for e in errors if "data_fingerprint" in e],
             [],
             f"Expected no data_fingerprint errors for synthetic with null fingerprint, got: {errors}",
+        )
+
+    def test_owner_invalid_hex_fingerprint_rejected(self) -> None:
+        # Non-hex characters (e.g. 'g', 'z') must be rejected.
+        for bad in ["not-hex-at-all", "a1b2c3d4e5f6", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"]:
+            doc = json.loads(json.dumps(self.valid_doc))
+            doc["provenance"]["source"] = "owner"
+            doc["provenance"]["data_fingerprint"] = bad
+            errors = combat_ir.validate(doc)
+            self.assertTrue(
+                any("data_fingerprint" in e for e in errors),
+                f"Expected error for owner fingerprint {bad!r}, got: {errors}",
+            )
+
+    def test_owner_uppercase_fingerprint_rejected(self) -> None:
+        # Uppercase hex characters must be rejected (lowercase only).
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["provenance"]["source"] = "owner"
+        doc["provenance"]["data_fingerprint"] = "A1B2C3D4E5F6" + "0" * 52
+        errors = combat_ir.validate(doc)
+        self.assertTrue(
+            any("data_fingerprint" in e and "lowercase" in e for e in errors),
+            f"Expected lowercase error for uppercase owner fingerprint, got: {errors}",
+        )
+
+    def test_owner_valid_64char_lowercase_accepted(self) -> None:
+        # A real 64-char lowercase SHA-256 hex digest must be accepted.
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["provenance"]["source"] = "owner"
+        doc["provenance"]["data_fingerprint"] = "a1b2c3d4e5f6" + "0" * 52
+        errors = combat_ir.validate(doc)
+        self.assertEqual(
+            [e for e in errors if "data_fingerprint" in e],
+            [],
+            f"Expected no data_fingerprint errors for valid owner doc, got: {errors}",
         )
 
     def test_cli_valid(self) -> None:
