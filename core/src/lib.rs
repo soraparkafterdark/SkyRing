@@ -15,4 +15,5 @@ pub mod ffi;
 pub mod magic;
 pub mod posture;
 pub mod sim;
+pub mod spells;
 pub mod trace;
