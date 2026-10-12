@@ -9,7 +9,9 @@
 
 pub mod balance;
 pub mod consequences;
+pub mod delivery;
 pub mod effects;
+pub mod hazards;
 pub mod ffi;
 pub mod posture;
 pub mod sim;
