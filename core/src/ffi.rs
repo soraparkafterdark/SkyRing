@@ -182,6 +182,18 @@ pub enum ErHurt {
     Knockdown = 3,
 }
 
+impl ErHurt {
+    fn from_wire(value: u32) -> Option<Self> {
+        match value {
+            0 => Some(Self::Small),
+            1 => Some(Self::Middle),
+            2 => Some(Self::Large),
+            3 => Some(Self::Knockdown),
+            _ => None,
+        }
+    }
+}
+
 /// What became of an incoming hit. On `Hit`, Skyrim applies its own damage;
 /// on `Dodged`, `Jumped` and `Blocked` the bridge cancels it.
 #[repr(u32)]
@@ -458,11 +470,11 @@ pub unsafe extern "C" fn er_update(
 /// # Safety
 /// `combat` must come from `er_create`.
 #[no_mangle]
-pub unsafe extern "C" fn er_receive_hit(combat: *mut ErCombat, from: ErVec3, low: u8, hurt: ErHurt) -> ErHitResult {
-    match combat.as_mut() {
-        Some(combat) => combat.receive_hit(from, low != 0, hurt),
-        None => ErHitResult::Ignored,
-    }
+pub unsafe extern "C" fn er_receive_hit(combat: *mut ErCombat, from: ErVec3, low: u8, hurt: u32) -> ErHitResult {
+    let (Some(combat), Some(hurt)) = (combat.as_mut(), ErHurt::from_wire(hurt)) else {
+        return ErHitResult::Ignored;
+    };
+    combat.receive_hit(from, low != 0, hurt)
 }
 
 /// The live swing hit something. Call once per swing that lands.
@@ -631,6 +643,14 @@ mod tests {
         assert_eq!(out.state, ErState::Ground, "standing on ground 10 m up is not falling");
         assert!((out.position.z - 700.0).abs() < 0.5);
     }
+
+    #[test]
+    fn c_entrypoint_rejects_unknown_hurt_values() {
+        let combat = er_create(ErVec3::default());
+        let result = unsafe { er_receive_hit(combat, ErVec3::default(), 0, u32::MAX) };
+        assert_eq!(result, ErHitResult::Ignored);
+        unsafe { er_destroy(combat) };
+    }
 }
 
 /// The C header's structs must lay out exactly like these. The bridge
@@ -643,15 +663,61 @@ mod layout {
     #[test]
     fn matches_the_c_header() {
         assert_eq!(size_of::<ErVec3>(), 12);
+        assert_eq!(std::mem::align_of::<ErVec3>(), 4);
+        assert_eq!(offset_of!(ErVec3, x), 0);
+        assert_eq!(offset_of!(ErVec3, y), 4);
+        assert_eq!(offset_of!(ErVec3, z), 8);
         assert_eq!(size_of::<ErButton>(), 3);
+        assert_eq!(std::mem::align_of::<ErButton>(), 1);
+        assert_eq!(offset_of!(ErButton, held), 0);
+        assert_eq!(offset_of!(ErButton, pressed), 1);
+        assert_eq!(offset_of!(ErButton, released), 2);
         assert_eq!(size_of::<ErInput>(), 32);
+        assert_eq!(std::mem::align_of::<ErInput>(), 4);
+        assert_eq!(offset_of!(ErInput, camera_heading), 8);
+        assert_eq!(offset_of!(ErInput, dodge), 12);
+        assert_eq!(offset_of!(ErInput, guard), 24);
+        assert_eq!(offset_of!(ErInput, crouch), 27);
+        assert_eq!(offset_of!(ErInput, two_hand_left), 31);
         assert_eq!(size_of::<ErWorld>(), 36);
+        assert_eq!(std::mem::align_of::<ErWorld>(), 4);
+        assert_eq!(offset_of!(ErWorld, position), 0);
+        assert_eq!(offset_of!(ErWorld, ground_z), 12);
+        assert_eq!(offset_of!(ErWorld, has_target), 16);
         assert_eq!(offset_of!(ErWorld, target), 20);
+        assert_eq!(offset_of!(ErWorld, in_combat), 32);
+        assert_eq!(size_of::<ErState>(), 4);
+        assert_eq!(ErState::Ground as u32, 0);
+        assert_eq!(ErState::Dead as u32, 3);
+        assert_eq!(size_of::<ErAction>(), 4);
+        assert_eq!(ErAction::None as u32, 0);
+        assert_eq!(ErAction::Hurt as u32, 19);
         assert_eq!(size_of::<ErOutput>(), 224);
+        assert_eq!(std::mem::align_of::<ErOutput>(), 4);
+        assert_eq!(offset_of!(ErOutput, position), 0);
+        assert_eq!(offset_of!(ErOutput, heading), 12);
+        assert_eq!(offset_of!(ErOutput, state), 16);
         assert_eq!(offset_of!(ErOutput, action), 20);
+        assert_eq!(offset_of!(ErOutput, action_frame), 52);
+        assert_eq!(offset_of!(ErOutput, action_kind), 56);
+        assert_eq!(offset_of!(ErOutput, action_dir), 60);
+        assert_eq!(offset_of!(ErOutput, action_serial), 64);
+        assert_eq!(offset_of!(ErOutput, speed), 68);
+        assert_eq!(offset_of!(ErOutput, sprinting), 72);
+        assert_eq!(offset_of!(ErOutput, interruptible), 77);
         assert_eq!(offset_of!(ErOutput, stamina), 80);
+        assert_eq!(offset_of!(ErOutput, hit_live), 84);
         assert_eq!(offset_of!(ErOutput, sweep_a), 88);
+        assert_eq!(offset_of!(ErOutput, sweep_b), 148);
+        assert_eq!(offset_of!(ErOutput, hit_radius), 208);
+        assert_eq!(offset_of!(ErOutput, damage_multiplier), 212);
         assert_eq!(offset_of!(ErOutput, stance_multiplier), 216);
         assert_eq!(offset_of!(ErOutput, hit_stop), 220);
+        assert_eq!(size_of::<ErHurt>(), 4);
+        assert_eq!(ErHurt::Small as u32, 0);
+        assert_eq!(ErHurt::Knockdown as u32, 3);
+        assert_eq!(size_of::<ErHitResult>(), 4);
+        assert_eq!(ErHitResult::Ignored as u32, 0);
+        assert_eq!(ErHitResult::Hit as u32, 5);
     }
 }

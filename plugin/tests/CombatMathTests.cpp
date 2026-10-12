@@ -57,6 +57,15 @@ int main()
 
     using namespace BridgePlan;
 
+    // Entering first person used to disable combat mode in Bridge::Tick and
+    // tear down the authoritative combat state. Perspective is deliberately
+    // absent from this policy: a drawn weapon remains core-owned in either
+    // presentation, while actual gameplay exits still disable it.
+    assert(ShouldEnableCombat(true, false, false));
+    assert(!ShouldEnableCombat(false, false, false));
+    assert(!ShouldEnableCombat(true, true, false));
+    assert(!ShouldEnableCombat(true, false, true));
+
     ErOutput orderedSwing{};
     orderedSwing.hit_live = 1;
     orderedSwing.hit_radius = 2.0f;

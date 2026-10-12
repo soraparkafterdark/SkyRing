@@ -100,8 +100,10 @@ void Bridge::Update(RE::PlayerCharacter* a_this, float a_delta)
 void Bridge::Tick(RE::PlayerCharacter* player, float delta)
 {
     auto* state = player->AsActorState();
-    const bool want = state && state->IsWeaponDrawn() && !MenuUp() && !player->IsDead() &&
-                      !RE::PlayerCamera::GetSingleton()->IsInFirstPerson();
+    // Perspective is presentation-only. In particular, changing to first
+    // person must not destroy and recreate `combat`, which would reset the
+    // live action clock, serial, stamina, i-frames, buffers, and contacts.
+    const bool want = state && BridgePlan::ShouldEnableCombat(state->IsWeaponDrawn(), MenuUp(), player->IsDead());
     if (want != combatMode) {
         SetCombatMode(want);
     }

@@ -1,15 +1,16 @@
 # Elden Ring combat for Skyrim
 
-An SKSE plugin that runs Elden Ring's player combat rules inside Skyrim SE/AE.
-That covers rolls on release, sprint on hold, i-frames, attack chains with
-their real cancel windows, charged heavies, guard counters and stamina costs.
-It's built to sit on top of a big modlist (Gate to Sovngarde) without breaking it.
+An in-progress SKSE integration for running Elden Ring-shaped player combat
+rules inside Skyrim SE/AE. The host-testable core covers rolls on release,
+sprint on hold, i-frames, attack chains, charged heavies, guard counters, and
+stamina scheduling. Real source timings and Skyrim/CrossOver behavior remain
+separate verification gates.
 
 The combat logic is the engine-free simulation from
 [Funny-Bones/ELDEN-RING-Combat-Rewrite](https://github.com/Funny-Bones/ELDEN-RING-Combat-Rewrite)
 (MIT, see `third_party/`), taken from commit `177a3b5`.
 
-## How it plays
+## Current bridge behavior
 
 - **Combat mode is on only while your weapon is drawn** and no menu is open.
   When you sheathe it, Skyrim and your other mods behave exactly as before.
@@ -19,12 +20,12 @@ The combat logic is the engine-free simulation from
   `ERCombat.ini`. By default those events drive TK Dodge and MCO/ADXP.
 - **Activate, movement, shouts, sneaking and menus always stay with Skyrim**, so
   doors, loot and dialogue keep working mid-fight.
-- **I-frames come from the core's real roll timings.** They're set through the
-  `bIframeActive` / `bInIframe` graph variables.
-- **First- and third-person are interchangeable, including during actions.**
-  Both views present the same live action clock, root motion, i-frames, stamina,
-  and hit geometry. The first-person camera keeps a stable horizon through
-  rolls by default; changing view never restarts or cancels combat state.
+- **I-frames come from the active core action table.** They're set through the
+  `bIframeActive` / `bInIframe` graph variables. Without an owner import, that
+  table is explicitly synthetic.
+- **Perspective no longer owns combat-mode lifetime.** Synchronized first- and
+  third-person animation graphs, camera behavior, and mid-action runtime proof
+  are still open work; the status list below is authoritative.
 
 ## Layout
 
@@ -79,6 +80,16 @@ compiles and the tests run. To use the real data:
    `python3 tools/owner_data.py import-bundle <zip>`. The importer installs
    `extracted.rs`; `build.rs` switches over automatically.
 
+The source boundary is deliberate: Elden Ring PC supplies owner data, while
+Skyrim SE/AE is the runtime target. Cyberpunk 2077 supplies neither and cannot
+substitute for Elden Ring. Run `py -3 tools\owner_data.py requirements` on the
+Windows machine for a no-installation-access summary before provisioning.
+
+Import creates an ignored provenance receipt under `owner_data/` and binds the
+installed table to a stable whole-source fingerprint. `--profile source`
+rehashes that private inventory; merely placing an untracked `extracted.rs` in
+the source tree cannot satisfy the source gate.
+
 Please keep generated data out of forks and uploads, as upstream asks.
 
 The Windows machine doing the extraction does not need a discrete GPU. See
@@ -103,9 +114,24 @@ exact commit, extracted data, Windows DLLs, runtime log, and every melee-slice
 acceptance assertion. The operational rules for coding agents are in
 [`AGENTS.md`](AGENTS.md).
 
+For release-oriented file fingerprints, require a clean exact commit and keep
+the resulting ignored report out of source control:
+
+```bash
+python3 tools/evidence.py fingerprint --require-clean \
+  plugin/dist/SKSE/Plugins/ERCombat.dll \
+  plugin/dist/SKSE/Plugins/er_combat_core.dll \
+  verification/out/runtime.log
+```
+
+The release manifest references that capture by hash. Every promoted runtime
+acceptance assertion also names a non-placeholder log event ID, tick/frame
+range, or capture locator in `acceptance_evidence`; a bare boolean is not
+evidence.
+
 ## Status
 
-- [x] Core as a library with a C interface; 29 tests (`cd core && cargo test --all-targets`)
+- [x] Core as a library with an explicitly checked C interface
 - [x] Bounded action/armament balance policy and an action-economy report
 - [x] Delivery-agnostic status buildup and buff/debuff stacking kernel
 - [x] Separate defensive poise and offensive stance meters

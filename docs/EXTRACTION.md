@@ -1,5 +1,25 @@
 # Owner-data extraction workstation
 
+## Supported game boundary
+
+SkyRing has exactly one owner-data source and one runtime target:
+
+- **Elden Ring PC (Steam app 1245620)** supplies the private action,
+  animation, regulation, and optional sound inputs.
+- **Skyrim Special Edition / Anniversary Edition** is the runtime target. Its
+  installation is not imported into the Elden Ring owner-data bundle.
+- **Cyberpunk 2077 is not a SkyRing input.** It cannot substitute for Elden
+  Ring, and the importer rejects a bundle labelled as Cyberpunk data.
+
+Therefore the ThinkCentre needs an installed, legally owned Elden Ring copy
+for `dump`. Install Skyrim there as well only if it will be used for native
+Windows build/runtime checks. A Cyberpunk installation is unrelated to this
+pipeline. Confirm the boundary at any time without installing a game:
+
+```powershell
+py -3 tools\owner_data.py requirements
+```
+
 SkyRing does not require a gaming GPU to unpack and generate its owner-local
 combat data. The extraction path is file I/O, decompression, binary parsing,
 and Rust/Python generation. A 64-bit Ryzen 5 ThinkCentre with integrated
@@ -13,6 +33,12 @@ Clone this repository on the Windows machine, open PowerShell in it, and run:
 py -3 tools\owner_data.py plan
 py -3 tools\owner_data.py dump
 ```
+
+`plan` and `dump` fail closed unless the directory contains `eldenring.exe`,
+`regulation.bin`, and Elden Ring's Oodle DLL. They also record Steam app
+1245620's installed `buildid` from `appmanifest_1245620.acf`. For a legitimate
+nonstandard layout where that manifest is unavailable, pass the numeric value
+explicitly with `--steam-build-id`; do not guess it.
 
 `dump` downloads hash-pinned official Nuxe and WitchyBND releases, downloads
 the exact pinned combat-rewrite generator source, and includes action data,
@@ -37,6 +63,15 @@ Import installs only `extracted.rs` at the location the core consumes. Raw
 owner inputs and generated animation/audio remain under ignored
 `owner_data/<bundle fingerprint>/` storage. The ZIP and every member are
 verified before anything is imported.
+
+The importer validates the exact pinned generator and tool identities, all
+required Elden Ring binders, unpacked regulation parameters, the source-game
+identity/build, and every member size/hash. It computes a canonical source
+fingerprint from that provenance and inventory. Unlike the transfer ZIP hash,
+the source fingerprint is stable if the same bytes are bundled again. Import
+is staged before the active table changes and writes an ignored
+`owner_data/current.json` receipt binding the fingerprint, private manifest,
+transfer hash, and installed `extracted.rs` hash.
 
 No upstream tool publishes a separate CPU, GPU, or RAM minimum for extraction.
 The practical requirements are:
@@ -92,8 +127,25 @@ python3 tools/verify.py --profile source
 The importer installs the generated action table at
 `core/src/sim/extracted.rs`, where the build consumes it, and keeps raw input,
 animation, and sound data below ignored `owner_data/` storage. The verifier
-records the action table's SHA-256 fingerprint without placing it in Git.
+rehashes the private inventory and rejects an action table not bound to the
+validated import receipt. The source profile reports the stable whole-source
+fingerprint without placing it in Git.
 
-Record the Elden Ring build/version used for extraction. A later release gate
-will reject CrossOver evidence that does not match the action-table fingerprint
-and exact SkyRing commit.
+The receipt records the Elden Ring Steam build ID automatically. A later
+release gate rejects CrossOver evidence that does not match the source
+fingerprint and exact SkyRing commit.
+
+## Tonight's provisioning handoff
+
+1. Install current Python 3 and Git on the ThinkCentre.
+2. Install the owner's Elden Ring PC copy through Steam. Skyrim SE/AE is also
+   needed for later Windows runtime work; Cyberpunk is not used by SkyRing.
+3. Clone this repository onto an NTFS volume with ample free space.
+4. Run `py -3 tools\owner_data.py requirements`, then
+   `py -3 tools\owner_data.py plan` to prove discovery and record the exact GUI
+   selection before starting the longer dump.
+5. Run `py -3 tools\owner_data.py dump`. Keep the resulting ZIP private and
+   transfer it to the Mac through local/removable storage.
+6. On the Mac, run `validate-bundle`, then `import-bundle`, then the `source`
+   profile exactly as shown above. A failure is `BLOCKED`; never hand-edit
+   `extracted.rs` or relabel a synthetic table.

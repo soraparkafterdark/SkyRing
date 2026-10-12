@@ -29,7 +29,12 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+RECEIPT_SCHEMA_VERSION = 1
+SOURCE_GAME_ID = "elden-ring-pc"
+SOURCE_GAME_TITLE = "ELDEN RING"
+STEAM_APP_ID = "1245620"
+RECEIPT_PATH = Path("owner_data/current.json")
 UPSTREAM_COMMIT = "177a3b5ec14a9bde39b9ab458a3400b4038224e3"
 UPSTREAM_URL = (
     "https://github.com/Funny-Bones/ELDEN-RING-Combat-Rewrite/archive/"
@@ -75,6 +80,18 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def sha256_bytes(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def canonical_json(value: Any) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+
+
+def is_sha256(value: Any) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
 
 
 def relative_files(root: Path) -> list[Path]:
@@ -223,6 +240,26 @@ def validate_game_dir(game_dir: Path) -> None:
         raise OwnerDataError(f"not an Elden Ring Game directory; missing: {', '.join(missing)}")
 
 
+def read_steam_build_id(game_dir: Path, explicit: str | None = None) -> str:
+    """Return Steam's installed build id, failing rather than guessing provenance."""
+    if explicit is not None:
+        if not re.fullmatch(r"[0-9]+", explicit):
+            raise OwnerDataError("--steam-build-id must contain only decimal digits")
+        return explicit
+    app_manifest = game_dir.parent.parent.parent / f"appmanifest_{STEAM_APP_ID}.acf"
+    if not app_manifest.is_file():
+        raise OwnerDataError(
+            f"Steam build manifest not found at {app_manifest}; "
+            "pass --steam-build-id with the installed Elden Ring build id"
+        )
+    contents = app_manifest.read_text(encoding="utf-8", errors="strict")
+    app_id = re.search(r'"appid"\s+"([0-9]+)"', contents)
+    build_id = re.search(r'"buildid"\s+"([0-9]+)"', contents)
+    if app_id is None or app_id.group(1) != STEAM_APP_ID or build_id is None:
+        raise OwnerDataError(f"invalid Elden Ring Steam app manifest: {app_manifest}")
+    return build_id.group(1)
+
+
 def nuxe_filter(include_sounds: bool) -> str:
     animation_names = "|".join(re.escape(name) for name in ANIMATION_BINDERS)
     branches = [rf"/chr/(?:{animation_names})"]
@@ -355,6 +392,7 @@ def build_manifest(
     payload: list[tuple[Path, str]],
     game_dir: Path,
     include_sounds: bool,
+    steam_build_id: str,
 ) -> dict[str, Any]:
     files: dict[str, dict[str, Any]] = {}
     for source, archive_name in payload:
@@ -365,7 +403,7 @@ def build_manifest(
         safe_member(archive_name)
         files[archive_name] = {"size": source.stat().st_size, "sha256": sha256(source)}
     game_exe = game_dir / "eldenring.exe"
-    return {
+    manifest: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "kind": "SkyRing owner data",
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -379,12 +417,113 @@ def build_manifest(
             "witchybnd": {"version": WITCHY_VERSION, "archive_sha256": WITCHY_SHA256},
         },
         "source_game": {
+            "game_id": SOURCE_GAME_ID,
+            "title": SOURCE_GAME_TITLE,
+            "steam_app_id": STEAM_APP_ID,
+            "steam_build_id": steam_build_id,
             "eldenring_exe_size": game_exe.stat().st_size,
             "eldenring_exe_sha256": sha256(game_exe),
             "sounds_included": include_sounds,
         },
         "files": files,
     }
+    manifest["source_fingerprint"] = calculate_source_fingerprint(manifest)
+    return manifest
+
+
+def source_fingerprint_record(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Select immutable provenance fields; transport time/ZIP layout are excluded."""
+    return {
+        "schema_version": manifest.get("schema_version"),
+        "kind": manifest.get("kind"),
+        "upstream": manifest.get("upstream"),
+        "tools": manifest.get("tools"),
+        "source_game": manifest.get("source_game"),
+        "files": manifest.get("files"),
+    }
+
+
+def calculate_source_fingerprint(manifest: dict[str, Any]) -> str:
+    return sha256_bytes(canonical_json(source_fingerprint_record(manifest)))
+
+
+def required_bundle_members(include_sounds: bool) -> set[str]:
+    members = {
+        *(f"source/chr/{name}" for name in ANIMATION_BINDERS),
+        "source/regulation.bin",
+        "source/oo2core_6_win64.dll",
+        "generated/src/sim/extracted.rs",
+        "generated/assets/player_anims.bin",
+    }
+    if include_sounds:
+        members.update(f"source/{name}" for name in SOUND_BANKS)
+        members.update(f"generated/{name}" for name in GENERATED_SOUND)
+    return members
+
+
+def validate_manifest(manifest: Any) -> dict[str, Any]:
+    if not isinstance(manifest, dict):
+        raise OwnerDataError("bundle manifest must be a JSON object")
+    if manifest.get("schema_version") != SCHEMA_VERSION or manifest.get("kind") != "SkyRing owner data":
+        raise OwnerDataError("unsupported owner-data bundle schema")
+
+    expected_upstream = {
+        "repository": "Funny-Bones/ELDEN-RING-Combat-Rewrite",
+        "commit": UPSTREAM_COMMIT,
+        "archive_sha256": UPSTREAM_SHA256,
+    }
+    if manifest.get("upstream") != expected_upstream:
+        raise OwnerDataError("bundle upstream identity does not match the pinned generator")
+    expected_tools = {
+        "nuxe": {"version": NUXE_VERSION, "archive_sha256": NUXE_SHA256},
+        "witchybnd": {"version": WITCHY_VERSION, "archive_sha256": WITCHY_SHA256},
+    }
+    if manifest.get("tools") != expected_tools:
+        raise OwnerDataError("bundle tool identity does not match the pinned extraction tools")
+
+    source_game = manifest.get("source_game")
+    if not isinstance(source_game, dict):
+        raise OwnerDataError("bundle source_game record is missing")
+    identity = (source_game.get("game_id"), source_game.get("title"), source_game.get("steam_app_id"))
+    if identity != (SOURCE_GAME_ID, SOURCE_GAME_TITLE, STEAM_APP_ID):
+        raise OwnerDataError(
+            "unsupported source game: SkyRing owner data must come from Elden Ring PC; "
+            "Cyberpunk 2077 is not an input to this project"
+        )
+    if not isinstance(source_game.get("steam_build_id"), str) or not re.fullmatch(
+        r"[0-9]+", source_game["steam_build_id"]
+    ):
+        raise OwnerDataError("bundle has no valid Elden Ring Steam build id")
+    if not isinstance(source_game.get("eldenring_exe_size"), int) or source_game["eldenring_exe_size"] <= 0:
+        raise OwnerDataError("bundle has no valid Elden Ring executable size")
+    if not is_sha256(source_game.get("eldenring_exe_sha256")):
+        raise OwnerDataError("bundle has no valid Elden Ring executable fingerprint")
+    include_sounds = source_game.get("sounds_included")
+    if not isinstance(include_sounds, bool):
+        raise OwnerDataError("bundle source_game.sounds_included must be boolean")
+
+    files = manifest.get("files")
+    if not isinstance(files, dict):
+        raise OwnerDataError("bundle manifest has no file table")
+    missing = sorted(required_bundle_members(include_sounds) - set(files))
+    if missing:
+        raise OwnerDataError(f"bundle is missing required Elden Ring input/output: {', '.join(missing)}")
+    if not any(
+        name.startswith("source/regulation-bin/") and name.lower().endswith(".param")
+        for name in files
+    ):
+        raise OwnerDataError("bundle is missing unpacked Elden Ring regulation-bin/*.param inputs")
+    for name, metadata in files.items():
+        safe_member(name)
+        if not isinstance(metadata, dict) or set(metadata) != {"size", "sha256"}:
+            raise OwnerDataError(f"invalid metadata for {name}")
+        if not isinstance(metadata["size"], int) or metadata["size"] < 0 or not is_sha256(metadata["sha256"]):
+            raise OwnerDataError(f"invalid size/hash metadata for {name}")
+
+    expected_fingerprint = calculate_source_fingerprint(manifest)
+    if manifest.get("source_fingerprint") != expected_fingerprint:
+        raise OwnerDataError("bundle source fingerprint does not match its canonical provenance record")
+    return manifest
 
 
 def create_bundle(
@@ -394,6 +533,7 @@ def create_bundle(
     include_sounds: bool,
     output: Path,
     force: bool,
+    steam_build_id: str | None = None,
 ) -> Path:
     if output.exists() and not force:
         raise OwnerDataError(f"bundle already exists; pass --force to replace it: {output}")
@@ -401,7 +541,12 @@ def create_bundle(
     names = [name for _, name in payload]
     if len(names) != len(set(names)):
         raise OwnerDataError("internal error: duplicate bundle member")
-    manifest = build_manifest(payload, game_dir, include_sounds)
+    manifest = build_manifest(
+        payload,
+        game_dir,
+        include_sounds,
+        read_steam_build_id(game_dir, steam_build_id),
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".partial")
     if temporary.exists():
@@ -430,20 +575,11 @@ def validate_bundle(bundle_path: Path) -> dict[str, Any]:
             manifest = json.loads(bundle.read("manifest.json"))
         except (KeyError, json.JSONDecodeError) as error:
             raise OwnerDataError(f"bundle manifest is missing or invalid: {error}") from error
-        if manifest.get("schema_version") != SCHEMA_VERSION or manifest.get("kind") != "SkyRing owner data":
-            raise OwnerDataError("unsupported owner-data bundle schema")
-        files = manifest.get("files")
-        if not isinstance(files, dict):
-            raise OwnerDataError("bundle manifest has no file table")
+        manifest = validate_manifest(manifest)
+        files = manifest["files"]
         if set(names) != {"manifest.json", *files.keys()}:
             raise OwnerDataError("bundle contents do not exactly match the manifest")
-        for required in ("generated/src/sim/extracted.rs", "generated/assets/player_anims.bin"):
-            if required not in files:
-                raise OwnerDataError(f"bundle is missing required generated output: {required}")
         for name, metadata in files.items():
-            safe_member(name)
-            if not isinstance(metadata, dict):
-                raise OwnerDataError(f"invalid metadata for {name}")
             digest = hashlib.sha256()
             size = 0
             with bundle.open(name) as source:
@@ -463,12 +599,19 @@ def copy_zip_member(bundle: zipfile.ZipFile, name: str, destination: Path) -> No
     temporary.replace(destination)
 
 
+def write_json_atomic(destination: Path, value: dict[str, Any]) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_suffix(destination.suffix + ".partial")
+    temporary.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(destination)
+
+
 def import_bundle(bundle_path: Path, repo: Path, force: bool) -> Path:
     manifest = validate_bundle(bundle_path)
     if not (repo / "verification" / "contract.json").is_file() or not (repo / "core" / "src" / "sim").is_dir():
         raise OwnerDataError(f"import destination is not a SkyRing checkout: {repo}")
-    fingerprint = sha256(bundle_path)[:16]
-    private_root = repo / "owner_data" / fingerprint
+    source_fingerprint = manifest["source_fingerprint"]
+    private_root = repo / "owner_data" / source_fingerprint[:16]
     if private_root.exists():
         raise OwnerDataError(f"this bundle is already imported: {private_root}")
     action_table = repo / "core" / "src" / "sim" / "extracted.rs"
@@ -477,18 +620,58 @@ def import_bundle(bundle_path: Path, repo: Path, force: bool) -> Path:
         raise OwnerDataError(
             f"a different extracted.rs already exists at {action_table}; pass --force to replace it"
         )
+    owner_root = repo / "owner_data"
+    owner_root.mkdir(parents=True, exist_ok=True)
+    receipt_path = repo / RECEIPT_PATH
+    with tempfile.TemporaryDirectory(prefix=".owner-import-", dir=owner_root) as temporary:
+        staging_root = Path(temporary) / "payload"
+        with zipfile.ZipFile(bundle_path) as bundle:
+            for name, metadata in manifest["files"].items():
+                member = safe_member(name)
+                destination = staging_root.joinpath(*member.parts)
+                copy_zip_member(bundle, name, destination)
+                if destination.stat().st_size != metadata["size"] or sha256(destination) != metadata["sha256"]:
+                    raise OwnerDataError(f"staged import failed size/hash verification: {name}")
+        write_json_atomic(staging_root / "manifest.json", manifest)
+        bundle_hash = sha256(bundle_path)
+        receipt = {
+            "schema_version": RECEIPT_SCHEMA_VERSION,
+            "kind": "SkyRing owner-data import receipt",
+            "imported_at_utc": datetime.now(timezone.utc).isoformat(),
+            "source_fingerprint": source_fingerprint,
+            "bundle_sha256": bundle_hash,
+            "action_table_sha256": expected_action_hash,
+            "private_root": private_root.relative_to(repo).as_posix(),
+            "source_game": manifest["source_game"],
+            "upstream": manifest["upstream"],
+        }
 
-    with zipfile.ZipFile(bundle_path) as bundle:
-        for name in manifest["files"]:
-            member = safe_member(name)
-            if member.parts[0] == "source":
-                destination = private_root.joinpath(*member.parts)
-            elif name == "generated/src/sim/extracted.rs":
-                destination = action_table
+        previous_action = Path(temporary) / "previous-extracted.rs"
+        previous_receipt = Path(temporary) / "previous-receipt.json"
+        if action_table.exists():
+            shutil.copy2(action_table, previous_action)
+        if receipt_path.exists():
+            shutil.copy2(receipt_path, previous_receipt)
+        copy_target = action_table.with_suffix(action_table.suffix + ".importing")
+
+        # All bundle bytes are validated before either live location changes.
+        staging_root.replace(private_root)
+        try:
+            shutil.copy2(private_root / "generated/src/sim/extracted.rs", copy_target)
+            copy_target.replace(action_table)
+            write_json_atomic(receipt_path, receipt)
+        except Exception:
+            copy_target.unlink(missing_ok=True)
+            if previous_action.exists():
+                shutil.copy2(previous_action, action_table)
             else:
-                destination = private_root.joinpath(*member.parts)
-            copy_zip_member(bundle, name, destination)
-    (private_root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+                action_table.unlink(missing_ok=True)
+            if previous_receipt.exists():
+                shutil.copy2(previous_receipt, receipt_path)
+            else:
+                receipt_path.unlink(missing_ok=True)
+            shutil.rmtree(private_root, ignore_errors=True)
+            raise
     return private_root
 
 
@@ -500,8 +683,10 @@ def default_bundle_path(work_dir: Path) -> Path:
 def command_plan(args: argparse.Namespace) -> None:
     game_dir = find_game_dir(args.game_dir)
     validate_game_dir(game_dir)
+    steam_build_id = read_steam_build_id(game_dir, args.steam_build_id)
     source_dir = args.work_dir.resolve() / "source"
     print_nuxe_plan(game_dir, source_dir, args.include_sounds)
+    print(f"Source game:      {SOURCE_GAME_TITLE} / Steam {STEAM_APP_ID} / build {steam_build_id}")
     print(f"Pinned Nuxe:      {NUXE_VERSION} ({NUXE_SHA256})")
     print(f"Pinned WitchyBND: {WITCHY_VERSION} ({WITCHY_SHA256})")
     print(f"Pinned generator: {UPSTREAM_COMMIT} ({UPSTREAM_SHA256})")
@@ -523,6 +708,7 @@ def command_dump(args: argparse.Namespace) -> None:
     source_dir = work_dir / "source"
     game_dir = find_game_dir(args.game_dir)
     validate_game_dir(game_dir)
+    steam_build_id = read_steam_build_id(game_dir, args.steam_build_id)
     nuxe, witchy = bootstrap_tools(work_dir, args.offline)
     if args.skip_nuxe:
         validate_nuxe_output(source_dir, args.include_sounds)
@@ -540,6 +726,7 @@ def command_dump(args: argparse.Namespace) -> None:
         args.include_sounds,
         output,
         args.force,
+        steam_build_id,
     )
     print(f"\nOwner-data bundle complete: {bundle}")
     print(f"SHA-256: {sha256(bundle)}")
@@ -558,9 +745,19 @@ def command_validate(args: argparse.Namespace) -> None:
 
 def command_import(args: argparse.Namespace) -> None:
     destination = import_bundle(args.bundle.resolve(), args.repo.resolve(), args.force)
+    receipt = json.loads((args.repo.resolve() / RECEIPT_PATH).read_text(encoding="utf-8"))
     print(f"Imported private owner data to: {destination}")
     print("Installed action table: core/src/sim/extracted.rs")
+    print(f"Source fingerprint: {receipt['source_fingerprint']}")
+    print(f"Import receipt: {RECEIPT_PATH.as_posix()}")
     print("Next: python3 tools/verify.py --profile source")
+
+
+def command_requirements(_args: argparse.Namespace) -> None:
+    print("SkyRing owner-data source: Elden Ring PC (Steam app 1245620)")
+    print("SkyRing runtime target: Skyrim Special Edition / Anniversary Edition")
+    print("Unsupported input: Cyberpunk 2077 (it is not interchangeable with Elden Ring)")
+    print("Install Elden Ring on the Windows extraction machine before running plan or dump.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -573,6 +770,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     plan = subcommands.add_parser("plan", help="show the exact Nuxe extraction plan")
     plan.add_argument("--game-dir", type=Path)
+    plan.add_argument("--steam-build-id", help="installed Steam build id when appmanifest discovery is unavailable")
     plan.add_argument("--work-dir", type=Path, default=Path("skyring-owner-dump"))
     plan.add_argument(
         "--no-sounds",
@@ -590,6 +788,7 @@ def build_parser() -> argparse.ArgumentParser:
     dump = subcommands.add_parser("dump", help="extract, generate, and bundle all owner-local data")
     work_options(dump)
     dump.add_argument("--game-dir", type=Path)
+    dump.add_argument("--steam-build-id", help="installed Steam build id when appmanifest discovery is unavailable")
     dump.add_argument(
         "--no-sounds",
         dest="include_sounds",
@@ -612,6 +811,9 @@ def build_parser() -> argparse.ArgumentParser:
     import_command.add_argument("--repo", type=Path, default=ROOT)
     import_command.add_argument("--force", action="store_true", help="replace a different existing extracted.rs")
     import_command.set_defaults(function=command_import)
+
+    requirements = subcommands.add_parser("requirements", help="show supported source and runtime games")
+    requirements.set_defaults(function=command_requirements)
     return parser
 
 

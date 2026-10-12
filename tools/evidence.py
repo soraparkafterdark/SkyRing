@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Evidence fingerprinting tool.
 
-Computes a deterministic fingerprint of files in a git repository.
+Computes a deterministic, repository-relative fingerprint of files in a Git
+repository. A fingerprint records dirty state; callers preparing release
+evidence can additionally require an exact clean commit.
 """
 
 from __future__ import annotations
@@ -41,20 +43,38 @@ def fingerprint(paths: List[Path], repo: Path) -> Dict[str, Any]:
     The dict contains:
       commit: SHA-1 of HEAD
       dirty: True if git status --porcelain is non-empty
-      files: mapping from path string to {sha256: hex, bytes: size}
+      files: mapping from canonical repository-relative path to
+             {sha256: hex, bytes: size}
       platform: {system, release, machine, python}
     """
+    repo = repo.resolve()
+
     # Git info
     commit = _run_git(["rev-parse", "HEAD"], repo)
-    dirty = bool(_run_git(["status", "--porcelain"], repo))
+    dirty = bool(_run_git(["status", "--porcelain", "--untracked-files=all"], repo))
 
-    # File hashes
+    # File hashes. Never serialize an absolute host path into evidence, and do
+    # not let a symlink make a file outside the checkout appear repository-local.
+    canonical: Dict[str, Path] = {}
+    for supplied in paths:
+        candidate = supplied if supplied.is_absolute() else repo / supplied
+        if candidate.is_symlink():
+            raise EvidenceError(f"Symbolic links are not valid evidence inputs: {supplied}")
+        resolved = candidate.resolve()
+        try:
+            relative = resolved.relative_to(repo).as_posix()
+        except ValueError as error:
+            raise EvidenceError(f"Evidence input is outside the repository: {supplied}") from error
+        if relative in canonical:
+            raise EvidenceError(f"Duplicate evidence input: {relative}")
+        if not resolved.is_file():
+            raise EvidenceError(f"Not a file: {supplied}")
+        canonical[relative] = resolved
+
     files: Dict[str, Dict[str, Any]] = {}
-    for p in paths:
-        if not p.is_file():
-            raise EvidenceError(f"Not a file: {p}")
-        data = p.read_bytes()
-        files[str(p)] = {
+    for relative in sorted(canonical):
+        data = canonical[relative].read_bytes()
+        files[relative] = {
             "sha256": hashlib.sha256(data).hexdigest(),
             "bytes": len(data),
         }
@@ -69,8 +89,10 @@ def fingerprint(paths: List[Path], repo: Path) -> Dict[str, Any]:
     }
 
     return {
+        "schema_version": 1,
         "commit": commit,
         "dirty": dirty,
+        "clean_commit_capture": not dirty,
         "files": files,
         "platform": platform_info,
     }
@@ -112,6 +134,11 @@ def main() -> None:
         default=Path("verification/out/evidence.json"),
         help="Output JSON file (default: verification/out/evidence.json)",
     )
+    fingerprint_parser.add_argument(
+        "--require-clean",
+        action="store_true",
+        help="refuse to write evidence unless the repository is at a clean exact commit",
+    )
     args = parser.parse_args()
 
     if args.command != "fingerprint":
@@ -136,7 +163,14 @@ def main() -> None:
         sys.exit(2)
 
     # Compute fingerprint
-    result = fingerprint(args.files, repo)
+    try:
+        result = fingerprint(args.files, repo)
+    except EvidenceError as error:
+        sys.stderr.write(f"Error: {error}\n")
+        sys.exit(2)
+    if args.require_clean and not result["clean_commit_capture"]:
+        sys.stderr.write("Error: release evidence requires a clean Git working tree\n")
+        sys.exit(2)
 
     # Write output
     out_path.parent.mkdir(parents=True, exist_ok=True)

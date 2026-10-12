@@ -71,6 +71,11 @@
   },
   "generated_owner_data": {
     "action_table": "core/src/sim/extracted.rs",
+    "import_receipt": "owner_data/current.json",
+    "source_game": "Elden Ring PC",
+    "runtime_game": "Skyrim SE/AE",
+    "unsupported_source_games": ["Cyberpunk 2077"],
+    "fingerprint_scope": "canonical pinned provenance plus every private input and generated output",
     "must_be_ignored": true,
     "must_not_be_tracked": true
   }

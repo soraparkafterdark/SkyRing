@@ -40,12 +40,13 @@ class EvidenceTests(unittest.TestCase):
         file1 = self.make_file("file1.txt", content=b"hello")
         file2 = self.make_file("file2.txt", content=b"world")
         result = evidence.fingerprint([file1, file2], self.repo)
-        self.assertEqual(result["files"][str(file1)]["sha256"],
+        self.assertEqual(result["files"]["file1.txt"]["sha256"],
                          "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
-        self.assertEqual(result["files"][str(file1)]["bytes"], 5)
-        self.assertEqual(result["files"][str(file2)]["sha256"],
+        self.assertEqual(result["files"]["file1.txt"]["bytes"], 5)
+        self.assertEqual(result["files"]["file2.txt"]["sha256"],
                          "486ea46224d1bb4fb680f34f7c9ad96a8f24ec88be73ea8e5a6c65260e9cb8a7")
-        self.assertEqual(result["files"][str(file2)]["bytes"], 5)
+        self.assertEqual(result["files"]["file2.txt"]["bytes"], 5)
+        self.assertNotIn(str(self.temp_dir), json.dumps(result))
 
     def test_fingerprint_commit_matches_git_rev_parse(self) -> None:
         # Create a file and commit it
@@ -68,10 +69,27 @@ class EvidenceTests(unittest.TestCase):
                        stdout=subprocess.DEVNULL)
         result_clean = evidence.fingerprint([f], self.repo)
         self.assertFalse(result_clean["dirty"])
+        self.assertTrue(result_clean["clean_commit_capture"])
         # Modify the file
         f.write_bytes(b"modified")
         result_dirty = evidence.fingerprint([f], self.repo)
         self.assertTrue(result_dirty["dirty"])
+        self.assertFalse(result_dirty["clean_commit_capture"])
+
+    def test_fingerprint_rejects_outside_symlink_and_duplicate_inputs(self) -> None:
+        inside = self.make_file("inside.txt", content=b"inside")
+        outside = self.temp_dir / "outside.txt"
+        outside.write_bytes(b"outside")
+        with self.assertRaisesRegex(evidence.EvidenceError, "outside the repository"):
+            evidence.fingerprint([outside], self.repo)
+
+        link = self.repo / "link.txt"
+        link.symlink_to(outside)
+        with self.assertRaisesRegex(evidence.EvidenceError, "Symbolic links"):
+            evidence.fingerprint([link], self.repo)
+
+        with self.assertRaisesRegex(evidence.EvidenceError, "Duplicate"):
+            evidence.fingerprint([inside, Path("inside.txt")], self.repo)
 
     def test_cli_writes_to_default_location(self) -> None:
         f = self.make_file("cli.txt", content=b"cli data")
@@ -83,9 +101,10 @@ class EvidenceTests(unittest.TestCase):
         out_path = self.repo / "verification" / "out" / "evidence.json"
         self.assertTrue(out_path.is_file())
         data = json.loads(out_path.read_text())
-        self.assertEqual(data["files"][str(f)]["sha256"],
+        self.assertEqual(data["files"]["cli.txt"]["sha256"],
                          "0c3f76f95f9e19afdf6bd4d9b66515c10a9d6fe2db6dd3a821cfcf67f229320f")
-        self.assertEqual(data["files"][str(f)]["bytes"], 8)
+        self.assertEqual(data["files"]["cli.txt"]["bytes"], 8)
+        self.assertNotIn(str(self.temp_dir), json.dumps(data))
 
     def test_cli_refuses_tracked_output_path(self) -> None:
         f = self.make_file("input.txt", content=b"input")
@@ -137,6 +156,57 @@ class EvidenceTests(unittest.TestCase):
             print(f"stdout: {completed.stdout}")
         self.assertEqual(completed.returncode, 0)
         self.assertTrue(out_file.is_file())
+
+    def test_cli_require_clean_rejects_dirty_tree_without_writing(self) -> None:
+        f = self.make_file("dirty.txt", content=b"dirty")
+        (self.repo / ".gitignore").write_text("evidence.json\n")
+        out_file = self.repo / "evidence.json"
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(TOOLS / "evidence.py"),
+                "fingerprint",
+                str(f),
+                "--out",
+                str(out_file),
+                "--require-clean",
+            ],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("clean Git working tree", completed.stderr)
+        self.assertFalse(out_file.exists())
+
+    def test_cli_require_clean_accepts_exact_commit(self) -> None:
+        f = self.make_file("clean.txt", content=b"clean")
+        (self.repo / ".gitignore").write_text("evidence.json\n")
+        subprocess.run(["git", "add", "clean.txt", ".gitignore"], cwd=self.repo, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "clean evidence inputs"],
+            cwd=self.repo,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        out_file = self.repo / "evidence.json"
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(TOOLS / "evidence.py"),
+                "fingerprint",
+                "clean.txt",
+                "--out",
+                str(out_file),
+                "--require-clean",
+            ],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(out_file.read_text())
+        self.assertTrue(result["clean_commit_capture"])
 
 
 if __name__ == "__main__":

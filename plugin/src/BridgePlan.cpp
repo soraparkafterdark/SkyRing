@@ -19,6 +19,11 @@ namespace
 
 namespace BridgePlan
 {
+    bool ShouldEnableCombat(bool weaponDrawn, bool menuUp, bool dead)
+    {
+        return weaponDrawn && !menuUp && !dead;
+    }
+
     bool CanConfirmNativeHit(
         bool hitLive,
         std::uint32_t currentActionSerial,

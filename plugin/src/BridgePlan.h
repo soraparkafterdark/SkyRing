@@ -7,6 +7,11 @@
 
 namespace BridgePlan
 {
+    // Combat ownership depends on gameplay state, never camera perspective.
+    // Keeping this decision in the perspective-free plan prevents a view
+    // switch from tearing down the authoritative combat core.
+    bool ShouldEnableCombat(bool weaponDrawn, bool menuUp, bool dead);
+
     // The CommonLib adapter supplies these facts. Keeping them here as plain
     // data makes target choice testable without a Skyrim process.
     struct TargetCandidate

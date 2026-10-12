@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -99,6 +100,7 @@ typedef enum ErHurt : uint32_t {
     ER_HURT_MIDDLE = 1,
     ER_HURT_LARGE = 2,
     ER_HURT_KNOCKDOWN = 3,
+    ER_HURT_COUNT = 4,
 } ErHurt;
 
 typedef enum ErHitResult : uint32_t {
@@ -115,9 +117,72 @@ typedef struct ErCombat ErCombat;
 ErCombat* er_create(ErVec3 position);
 void er_destroy(ErCombat* combat);
 void er_update(ErCombat* combat, float dt, const ErInput* input, const ErWorld* world, ErOutput* out);
-ErHitResult er_receive_hit(ErCombat* combat, ErVec3 from, uint8_t low, ErHurt hurt);
+/* `hurt` is a raw wire value so Rust can reject unknown discriminants safely. */
+ErHitResult er_receive_hit(ErCombat* combat, ErVec3 from, uint8_t low, uint32_t hurt);
 void er_confirm_hit(ErCombat* combat);
 
 #ifdef __cplusplus
 }
+
+/* Keep every field that crosses the Rust/C++ boundary under compile-time
+ * layout checks. Rust mirrors these assertions in core/src/ffi.rs. */
+static_assert(sizeof(ErVec3) == 12);
+static_assert(alignof(ErVec3) == 4);
+static_assert(offsetof(ErVec3, x) == 0);
+static_assert(offsetof(ErVec3, y) == 4);
+static_assert(offsetof(ErVec3, z) == 8);
+
+static_assert(sizeof(ErButton) == 3);
+static_assert(alignof(ErButton) == 1);
+static_assert(offsetof(ErButton, held) == 0);
+static_assert(offsetof(ErButton, pressed) == 1);
+static_assert(offsetof(ErButton, released) == 2);
+
+static_assert(sizeof(ErInput) == 32);
+static_assert(alignof(ErInput) == 4);
+static_assert(offsetof(ErInput, camera_heading) == 8);
+static_assert(offsetof(ErInput, dodge) == 12);
+static_assert(offsetof(ErInput, guard) == 24);
+static_assert(offsetof(ErInput, crouch) == 27);
+static_assert(offsetof(ErInput, two_hand_left) == 31);
+
+static_assert(sizeof(ErWorld) == 36);
+static_assert(alignof(ErWorld) == 4);
+static_assert(offsetof(ErWorld, position) == 0);
+static_assert(offsetof(ErWorld, ground_z) == 12);
+static_assert(offsetof(ErWorld, has_target) == 16);
+static_assert(offsetof(ErWorld, target) == 20);
+static_assert(offsetof(ErWorld, in_combat) == 32);
+
+static_assert(sizeof(ErState) == 4);
+static_assert(ER_STATE_GROUND == 0 && ER_STATE_ACTION == 1 && ER_STATE_AIR == 2 && ER_STATE_DEAD == 3);
+static_assert(sizeof(ErAction) == 4);
+static_assert(ER_ACTION_NONE == 0 && ER_ACTION_HURT == 19 && ER_ACTION_COUNT == 20);
+
+static_assert(sizeof(ErOutput) == 224);
+static_assert(alignof(ErOutput) == 4);
+static_assert(offsetof(ErOutput, position) == 0);
+static_assert(offsetof(ErOutput, heading) == 12);
+static_assert(offsetof(ErOutput, state) == 16);
+static_assert(offsetof(ErOutput, action) == 20);
+static_assert(offsetof(ErOutput, action_frame) == 52);
+static_assert(offsetof(ErOutput, action_kind) == 56);
+static_assert(offsetof(ErOutput, action_dir) == 60);
+static_assert(offsetof(ErOutput, action_serial) == 64);
+static_assert(offsetof(ErOutput, speed) == 68);
+static_assert(offsetof(ErOutput, sprinting) == 72);
+static_assert(offsetof(ErOutput, interruptible) == 77);
+static_assert(offsetof(ErOutput, stamina) == 80);
+static_assert(offsetof(ErOutput, hit_live) == 84);
+static_assert(offsetof(ErOutput, sweep_a) == 88);
+static_assert(offsetof(ErOutput, sweep_b) == 148);
+static_assert(offsetof(ErOutput, hit_radius) == 208);
+static_assert(offsetof(ErOutput, damage_multiplier) == 212);
+static_assert(offsetof(ErOutput, stance_multiplier) == 216);
+static_assert(offsetof(ErOutput, hit_stop) == 220);
+
+static_assert(sizeof(ErHurt) == 4);
+static_assert(ER_HURT_SMALL == 0 && ER_HURT_KNOCKDOWN == 3 && ER_HURT_COUNT == 4);
+static_assert(sizeof(ErHitResult) == 4);
+static_assert(ER_HIT_IGNORED == 0 && ER_HIT_HIT == 5);
 #endif

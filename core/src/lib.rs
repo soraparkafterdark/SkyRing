@@ -13,3 +13,4 @@ pub mod effects;
 pub mod ffi;
 pub mod posture;
 pub mod sim;
+pub mod trace;

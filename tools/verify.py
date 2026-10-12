@@ -21,12 +21,15 @@ import tempfile
 from datetime import datetime, timezone
 from typing import Any
 
+import owner_data
+
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = ROOT / "verification" / "contract.json"
 EXTRACTED_PATH = ROOT / "core" / "src" / "sim" / "extracted.rs"
 EVIDENCE_PATH = ROOT / "verification" / "runtime-evidence.json"
 REPORT_PATH = ROOT / "verification" / "out" / "last-run.json"
+OWNER_RECEIPT_PATH = ROOT / owner_data.RECEIPT_PATH
 EXPECTED_NAME = "soraparkafterdark"
 EXPECTED_EMAIL = "sorapark@proton.me"
 EXPECTED_REMOTE_SUFFIX = "github.com/soraparkafterdark/SkyRing"
@@ -117,6 +120,11 @@ def check_contract(contract: dict[str, Any]) -> str:
         raise VerificationError("native hit/contact reconciliation invariant is missing")
     if invariants.get("all_weapons_unconditionally_wieldable") is not True:
         raise VerificationError("unconditional weapon access invariant is missing")
+    owner_contract = contract.get("generated_owner_data", {})
+    if owner_contract.get("source_game") != "Elden Ring PC" or owner_contract.get("runtime_game") != "Skyrim SE/AE":
+        raise VerificationError("owner-data source/runtime game boundary is missing")
+    if "Cyberpunk 2077" not in owner_contract.get("unsupported_source_games", []):
+        raise VerificationError("unsupported Cyberpunk source boundary is missing")
     for name, profile in profiles.items():
         required = profile.get("required_gates") if isinstance(profile, dict) else None
         if not isinstance(required, list) or not required or not all(isinstance(gate, str) for gate in required):
@@ -177,8 +185,56 @@ def check_source_data(required: bool) -> tuple[str, str | None]:
         if required:
             raise VerificationError("owner-generated core/src/sim/extracted.rs is required for this profile")
         return "synthetic stand-in active; source data not claimed", None
-    fingerprint = sha256(EXTRACTED_PATH)
-    return f"owner-generated action table present; sha256={fingerprint}", fingerprint
+    if not OWNER_RECEIPT_PATH.is_file():
+        raise VerificationError(
+            "extracted.rs exists without the ignored owner-data import receipt; "
+            "install it with tools/owner_data.py import-bundle"
+        )
+    receipt = load_json(OWNER_RECEIPT_PATH)
+    if receipt.get("schema_version") != owner_data.RECEIPT_SCHEMA_VERSION or receipt.get("kind") != "SkyRing owner-data import receipt":
+        raise VerificationError("unsupported owner-data import receipt")
+    for field in ("source_fingerprint", "bundle_sha256", "action_table_sha256"):
+        if not owner_data.is_sha256(receipt.get(field)):
+            raise VerificationError(f"owner-data receipt has invalid {field}")
+    source_fingerprint = receipt["source_fingerprint"]
+    raw_private_root = receipt.get("private_root")
+    expected_relative = f"owner_data/{source_fingerprint[:16]}"
+    if raw_private_root != expected_relative:
+        raise VerificationError("owner-data receipt private_root does not match its source fingerprint")
+    private_root = ROOT / raw_private_root
+    if private_root.is_symlink() or not private_root.is_dir():
+        raise VerificationError("owner-data receipt private_root is missing or unsafe")
+    manifest_path = private_root / "manifest.json"
+    try:
+        manifest = owner_data.validate_manifest(json.loads(manifest_path.read_text(encoding="utf-8")))
+    except (OSError, json.JSONDecodeError, owner_data.OwnerDataError) as error:
+        raise VerificationError(f"owner-data private manifest is invalid: {error}") from error
+    if manifest["source_fingerprint"] != source_fingerprint:
+        raise VerificationError("owner-data receipt and private manifest fingerprints differ")
+    if receipt.get("source_game") != manifest["source_game"] or receipt.get("upstream") != manifest["upstream"]:
+        raise VerificationError("owner-data receipt provenance differs from its private manifest")
+    action_hash = sha256(EXTRACTED_PATH)
+    expected_action_hash = manifest["files"]["generated/src/sim/extracted.rs"]["sha256"]
+    if action_hash != expected_action_hash or receipt["action_table_sha256"] != expected_action_hash:
+        raise VerificationError("installed extracted.rs is not the table named by the owner-data receipt")
+    expected_private_files = {"manifest.json", *manifest["files"].keys()}
+    actual_private_files = {
+        path.relative_to(private_root).as_posix()
+        for path in private_root.rglob("*")
+        if path.is_file()
+    }
+    if actual_private_files != expected_private_files:
+        raise VerificationError("private owner-data inventory differs from its manifest")
+    for name, metadata in manifest["files"].items():
+        path = private_root / name
+        if path.is_symlink() or path.stat().st_size != metadata["size"] or sha256(path) != metadata["sha256"]:
+            raise VerificationError(f"private owner-data file failed provenance verification: {name}")
+    build_id = manifest["source_game"]["steam_build_id"]
+    return (
+        f"validated Elden Ring Steam build {build_id}; source fingerprint={source_fingerprint}; "
+        f"action table sha256={action_hash}",
+        source_fingerprint,
+    )
 
 
 def check_rust_tests(cargo: Path, env: dict[str, str]) -> str:
@@ -435,7 +491,7 @@ def main() -> int:
         "commit": run(["git", "rev-parse", "HEAD"]).strip(),
         "source_data": {
             "mode": "owner-extracted" if source_hash else "synthetic",
-            "sha256": source_hash,
+            "source_fingerprint": source_hash,
         },
         "checks": checks,
         "claim": contract.get("profiles", {}).get(args.profile, {}).get("proves", ""),
