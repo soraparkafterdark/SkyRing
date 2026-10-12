@@ -119,6 +119,25 @@ impl Caster {
         Self { id, serial: 0, phase: Phase::Idle, active: None, spent_total: 0.0, reported_total: 0.0 }
     }
 
+    /// A caster that continues an actor's release numbering, so release ids stay
+    /// unique across that actor's unloads and respawns while earlier projectiles
+    /// are still in flight.
+    pub fn resume(id: u32, serial: u32) -> Self {
+        Self { serial, ..Self::new(id) }
+    }
+
+    /// Releases made so far; pass it to `resume` to continue the numbering.
+    pub fn serial(&self) -> u32 {
+        self.serial
+    }
+
+    /// Ends any cast in progress without an event and without a refund of what
+    /// was already spent: the actor died, unloaded or was reset. Unreported
+    /// spend is kept so Skyrim still charges it.
+    pub fn cancel(&mut self) {
+        self.finish_cast();
+    }
+
     pub fn is_idle(&self) -> bool {
         self.phase == Phase::Idle
     }

@@ -13,6 +13,7 @@ pub mod consequences;
 pub mod effects;
 pub mod ffi;
 pub mod magic;
+pub mod magic_world;
 pub mod posture;
 pub mod sim;
 pub mod trace;
