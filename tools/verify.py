@@ -277,6 +277,13 @@ def check_swarm_sandbox() -> str:
     return f"swarm manifest valid; {independent}/{total} tasks are dump-independent"
 
 
+def check_pytest_suite() -> str:
+    output = run([sys.executable, "-m", "pytest", "tools/tests", "-q"])
+    match = re.search(r"(\d+) passed", output)
+    count = match.group(1) if match else "unknown"
+    return f"pytest suite passed ({count} tests)"
+
+
 def check_balance_report(cargo: Path, env: dict[str, str]) -> str:
     output = run(
         [str(cargo), "run", "--quiet", "--bin", "balance_report"],
@@ -408,6 +415,7 @@ def main() -> int:
     gate("balance_model", check_balance_model)
     gate("owner_data_tool", check_owner_data_tool)
     gate("swarm_sandbox", check_swarm_sandbox)
+    gate("pytest_suite", check_pytest_suite)
     gate(
         "balance_report",
         lambda: unavailable(cargo_error) if cargo_error else check_balance_report(cargo, cargo_env),

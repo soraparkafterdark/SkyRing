@@ -21,7 +21,8 @@
         "owner_data_tool",
         "swarm_sandbox",
         "balance_model",
-        "balance_report"
+        "balance_report",
+        "pytest_suite"
       ]
     },
     "source": {
