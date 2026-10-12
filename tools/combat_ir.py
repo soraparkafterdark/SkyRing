@@ -8,9 +8,58 @@ Usage:
 The validate function returns a list of error strings; an empty list means valid.
 """
 
+import enum
 import json
+import math
 import sys
 from typing import Any, Dict, List
+
+
+class AttackKind(str, enum.Enum):
+    """Attack kinds used by the bridge. Mirrors `AttackKind` in core/src/data.rs /
+    role() and the envelope table in core/src/balance.rs."""
+
+    # Light attacks
+    Light1 = "Light1"
+    Light2 = "Light2"
+    Light3 = "Light3"
+    Light4 = "Light4"
+    Light5 = "Light5"
+    Light6 = "Light6"
+    LeftLight1 = "LeftLight1"
+    LeftLight2 = "LeftLight2"
+    LeftLight3 = "LeftLight3"
+    LeftLight4 = "LeftLight4"
+    LeftLight5 = "LeftLight5"
+    LeftLight6 = "LeftLight6"
+    # Heavy attacks
+    Heavy1 = "Heavy1"
+    Heavy2 = "Heavy2"
+    RunHeavy = "RunHeavy"
+    Heavy1Charge = "Heavy1Charge"
+    Heavy2Charge = "Heavy2Charge"
+    # Special actions
+    CrouchAttack = "CrouchAttack"
+    RunLight = "RunLight"
+    RollAttack = "RollAttack"
+    BackstepAttack = "BackstepAttack"
+    JumpLightLand = "JumpLightLand"
+    JumpLightLandShort = "JumpLightLandShort"
+    JumpHeavyLand = "JumpHeavyLand"
+    JumpHeavyLandShort = "JumpHeavyLandShort"
+    GuardCounter = "GuardCounter"
+    # Paired attacks
+    PairedLight1 = "PairedLight1"
+    PairedLight2 = "PairedLight2"
+    PairedLight3 = "PairedLight3"
+    PairedLight4 = "PairedLight4"
+    PairedLight5 = "PairedLight5"
+    PairedLight6 = "PairedLight6"
+    PairedRun = "PairedRun"
+    PairedRoll = "PairedRoll"
+    PairedBackstep = "PairedBackstep"
+    PairedJumpLand = "PairedJumpLand"
+    PairedJumpLandShort = "PairedJumpLandShort"
 
 
 def validate(doc: Dict[str, Any]) -> List[str]:
@@ -204,6 +253,117 @@ def validate(doc: Dict[str, Any]) -> List[str]:
     check_forbidden(doc)
 
     return errors
+
+
+class _Envelope:
+    __slots__ = ("damage_min", "damage_default", "damage_max")
+
+    def __init__(self, damage_min: float, damage_default: float, damage_max: float) -> None:
+        self.damage_min = damage_min
+        self.damage_default = damage_default
+        self.damage_max = damage_max
+
+
+# Damage envelope table. Mirrors `ActionRole.envelope()` in core/src/balance.rs
+# so the Python translation and the Rust core disagree on nothing.
+_ENVELOPES: Dict[AttackKind, _Envelope] = {
+    AttackKind.Light1: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.Light2: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.Light3: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.Light4: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.Light5: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.Light6: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.LeftLight1: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.LeftLight2: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.LeftLight3: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.LeftLight4: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.LeftLight5: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.LeftLight6: _Envelope(0.90, 1.00, 1.15),
+    AttackKind.Heavy1: _Envelope(1.35, 1.55, 1.85),
+    AttackKind.Heavy2: _Envelope(1.35, 1.55, 1.85),
+    AttackKind.RunHeavy: _Envelope(1.35, 1.55, 1.85),
+    AttackKind.Heavy1Charge: _Envelope(1.80, 2.10, 2.50),
+    AttackKind.Heavy2Charge: _Envelope(1.80, 2.10, 2.50),
+    AttackKind.CrouchAttack: _Envelope(0.80, 0.90, 1.00),
+    AttackKind.RunLight: _Envelope(1.00, 1.10, 1.25),
+    AttackKind.RollAttack: _Envelope(0.90, 1.00, 1.10),
+    AttackKind.BackstepAttack: _Envelope(0.90, 1.00, 1.10),
+    AttackKind.JumpLightLand: _Envelope(1.15, 1.25, 1.45),
+    AttackKind.JumpLightLandShort: _Envelope(1.15, 1.25, 1.45),
+    AttackKind.JumpHeavyLand: _Envelope(1.65, 1.85, 2.20),
+    AttackKind.JumpHeavyLandShort: _Envelope(1.65, 1.85, 2.20),
+    AttackKind.GuardCounter: _Envelope(1.50, 1.75, 2.00),
+    AttackKind.PairedLight1: _Envelope(0.65, 0.75, 0.90),
+    AttackKind.PairedLight2: _Envelope(0.65, 0.75, 0.90),
+    AttackKind.PairedLight3: _Envelope(0.65, 0.75, 0.90),
+    AttackKind.PairedLight4: _Envelope(0.65, 0.75, 0.90),
+    AttackKind.PairedLight5: _Envelope(0.65, 0.75, 0.90),
+    AttackKind.PairedLight6: _Envelope(0.65, 0.75, 0.90),
+    AttackKind.PairedRun: _Envelope(0.65, 0.75, 0.90),
+    AttackKind.PairedRoll: _Envelope(0.65, 0.75, 0.90),
+    AttackKind.PairedBackstep: _Envelope(0.65, 0.75, 0.90),
+    AttackKind.PairedJumpLand: _Envelope(0.65, 0.75, 0.90),
+    AttackKind.PairedJumpLandShort: _Envelope(0.65, 0.75, 0.90),
+}
+
+
+def translate(kind: str, motion_value: Any) -> Dict[str, Any]:
+    """Translate one Elden Ring source motion value into the bounded multiplier.
+
+    This mirrors `balance::damage_multiplier` exactly: invalid, non-positive or
+    non-finite source values are treated as envelope default; the result is then
+    clamped into the role's damage envelope. The returned multiplier is always a
+    finite float inside [damage_min, damage_max].
+    """
+    envelope = _ENVELOPES.get(AttackKind(kind))
+    if envelope is None:
+        return {
+            "kind": kind,
+            "motion_value_in": motion_value,
+            "damage_multiplier": None,
+            "reason": f"unknown attack kind {kind!r}; must be one of {sorted(_ENVELOPES.keys())}",
+        }
+
+    mv: float
+    if isinstance(motion_value, str):
+        try:
+            mv = float(motion_value)
+        except ValueError:
+            mv = float("nan")
+    elif isinstance(motion_value, bool):
+        mv = float("nan")
+    elif isinstance(motion_value, (int, float)):
+        mv = float(motion_value)
+    else:
+        mv = float("nan")
+
+    if math.isnan(mv):
+        # NaN is non-finite and carries no magnitude; use the envelope default.
+        source = envelope.damage_default
+        reason = "non-finite (NaN) motion value; using envelope default"
+    elif mv == 0.0:
+        # A zero motion value carries no force; use the envelope default.
+        source = envelope.damage_default
+        reason = "zero motion value; using envelope default"
+    elif mv < 0.0:
+        # Negative motion value is clamped to the envelope min.
+        source = envelope.damage_min
+        reason = "negative motion value; clamping to envelope min"
+    elif not math.isfinite(mv):
+        # Positive infinity is clamped to the envelope max.
+        source = envelope.damage_max
+        reason = "infinite motion value; clamping to envelope max"
+    else:
+        source = mv
+        reason = "normal motion value within envelope"
+
+    result = max(envelope.damage_min, min(envelope.damage_max, source))
+    return {
+        "kind": kind,
+        "motion_value_in": motion_value,
+        "damage_multiplier": result,
+        "reason": reason,
+    }
 
 
 def _cli() -> None:
