@@ -36,8 +36,17 @@ void Settings::Load()
     jumpKey = ReadKey(L"Jump", jumpKey);
     lightKey = ReadKey(L"Light", lightKey);
     guardKey = ReadKey(L"Guard", guardKey);
+    heavyKey = ReadKey(L"Heavy", heavyKey);
     heavyModifier = ReadKey(L"HeavyModifier", heavyModifier);
     walkKey = ReadKey(L"Walk", walkKey);
+
+    dodgePad = ReadKey(L"GamepadDodge", dodgePad);
+    jumpPad = ReadKey(L"GamepadJump", jumpPad);
+    lightPad = ReadKey(L"GamepadLight", lightPad);
+    heavyPad = ReadKey(L"GamepadHeavy", heavyPad);
+    guardPad = ReadKey(L"GamepadGuard", guardPad);
+    heavyModifierPad = ReadKey(L"GamepadHeavyModifier", heavyModifierPad);
+    walkPad = ReadKey(L"GamepadWalk", walkPad);
 
     // Defaults drive the animations Gate to Sovngarde already has: TK Dodge
     // for rolls, and the vanilla attack events that MCO/ADXP and BFCO answer.
@@ -56,4 +65,22 @@ void Settings::Load()
     events[ER_ACTION_HURT] = ReadEvent(L"Hurt", "");
 
     coreHitDetection = GetPrivateProfileIntW(L"General", L"CoreHitDetection", 0, kPath) != 0;
+}
+
+InputPlan::Bindings Settings::InputBindings() const
+{
+    using InputPlan::Code;
+    using InputPlan::Device;
+    // Keyboard and mouse share one numbering (mouse = 256 + n), so the ini
+    // value is already the device-tagged code.
+    const auto pad = [](std::uint32_t raw) { return Code(Device::Gamepad, raw); };
+    InputPlan::Bindings bindings;
+    bindings.dodge = { dodgeKey, pad(dodgePad) };
+    bindings.jump = { jumpKey, pad(jumpPad) };
+    bindings.light = { lightKey, pad(lightPad) };
+    bindings.heavy = { heavyKey, pad(heavyPad) };
+    bindings.guard = { guardKey, pad(guardPad) };
+    bindings.heavyModifier = { heavyModifier, pad(heavyModifierPad) };
+    bindings.walk = { walkKey, pad(walkPad) };
+    return bindings;
 }

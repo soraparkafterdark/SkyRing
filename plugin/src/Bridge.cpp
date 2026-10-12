@@ -246,13 +246,16 @@ void Bridge::PlayAction(RE::PlayerCharacter* player, const ErOutput& out)
 
 float Bridge::CameraHeading(RE::PlayerCharacter* player)
 {
-    float heading = player->GetAngleZ();
+    // Perspective stays in this adapter. First person has no orbit, so the
+    // heading is the player's yaw; third person adds its free-rotation offset
+    // when the camera reports one. The core only sees the resulting heading.
+    BridgePlan::CameraFacts facts{};
+    facts.playerYaw = player->GetAngleZ();
     auto* camera = RE::PlayerCamera::GetSingleton();
     if (camera && camera->currentState && camera->currentState->id == RE::CameraState::kThirdPerson) {
         auto* third = static_cast<RE::ThirdPersonState*>(camera->currentState.get());
-        if (third->freeRotationEnabled) {
-            heading += third->freeRotation.x;
-        }
+        facts.freeRotationEnabled = third->freeRotationEnabled;
+        facts.freeRotationYaw = third->freeRotation.x;
     }
-    return heading;
+    return BridgePlan::CameraHeading(facts);
 }

@@ -2,6 +2,25 @@
 
 #include "Settings.h"
 
+#include <optional>
+
+namespace
+{
+    std::optional<InputPlan::Device> ToDevice(RE::INPUT_DEVICE device)
+    {
+        switch (device) {
+        case RE::INPUT_DEVICE::kKeyboard:
+            return InputPlan::Device::Keyboard;
+        case RE::INPUT_DEVICE::kMouse:
+            return InputPlan::Device::Mouse;
+        case RE::INPUT_DEVICE::kGamepad:
+            return InputPlan::Device::Gamepad;
+        default:
+            return std::nullopt;
+        }
+    }
+}
+
 Input* Input::Get()
 {
     static Input input;
@@ -10,41 +29,20 @@ Input* Input::Get()
 
 void Input::Register()
 {
+    ApplyBindings();
     if (auto* devices = RE::BSInputDeviceManager::GetSingleton()) {
         devices->AddEventSink<RE::InputEvent*>(this);
     }
 }
 
+void Input::ApplyBindings()
+{
+    controls.SetBindings(Settings::Get().InputBindings());
+}
+
 ErInput Input::Take(float cameraHeading)
 {
-    ErInput out{};
-    // Keyboard movement wins over a resting stick.
-    float x = static_cast<float>(right) - static_cast<float>(left);
-    float y = static_cast<float>(forward) - static_cast<float>(back);
-    if (x == 0.0f && y == 0.0f) {
-        x = stickX;
-        y = stickY;
-    }
-    const float length = std::sqrt(x * x + y * y);
-    if (length > 1.0f) {
-        x /= length;
-        y /= length;
-    }
-    // Walking on the keyboard: a light tilt.
-    if (walk && length > 0.0f) {
-        x *= 0.4f;
-        y *= 0.4f;
-    }
-    out.move_x = x;
-    out.move_y = y;
-    out.camera_heading = cameraHeading;
-    out.dodge = dodge.Take();
-    out.jump = jump.Take();
-    out.light = light.Take();
-    out.heavy = heavy.Take();
-    out.guard = guard.Take();
-    out.walk = walk;
-    return out;
+    return controls.Take(cameraHeading);
 }
 
 RE::BSEventNotifyControl Input::ProcessEvent(RE::InputEvent* const* a_event, RE::BSTEventSource<RE::InputEvent*>*)
@@ -52,15 +50,13 @@ RE::BSEventNotifyControl Input::ProcessEvent(RE::InputEvent* const* a_event, RE:
     if (!a_event) {
         return RE::BSEventNotifyControl::kContinue;
     }
-    const auto& settings = Settings::Get();
     const auto* userEvents = RE::UserEvents::GetSingleton();
 
     for (auto* event = *a_event; event; event = event->next) {
         if (event->GetEventType() == RE::INPUT_EVENT_TYPE::kThumbstick) {
             auto* stick = static_cast<RE::ThumbstickEvent*>(event);
             if (stick->IsLeft()) {
-                stickX = stick->xValue;
-                stickY = stick->yValue;
+                controls.Stick(stick->xValue, stick->yValue);
             }
             continue;
         }
@@ -68,41 +64,27 @@ RE::BSEventNotifyControl Input::ProcessEvent(RE::InputEvent* const* a_event, RE:
         if (!button) {
             continue;
         }
+        // IsPressed is true while held, auto-repeat included; IsDown only on
+        // the event that put the control down. Controls turns transitions of
+        // the first into edges, so repeats cannot fire an action twice.
         const bool down = button->IsPressed();
         const auto& user = button->QUserEvent();
         if (user == userEvents->forward) {
-            forward = down;
+            controls.Move(InputPlan::Direction::Forward, down);
         } else if (user == userEvents->back) {
-            back = down;
+            controls.Move(InputPlan::Direction::Back, down);
         } else if (user == userEvents->strafeLeft) {
-            left = down;
+            controls.Move(InputPlan::Direction::Left, down);
         } else if (user == userEvents->strafeRight) {
-            right = down;
+            controls.Move(InputPlan::Direction::Right, down);
         } else if (user == userEvents->activate && button->IsDown()) {
             activatePressed = true;
         }
 
-        // Our own keys, by scan code; mouse buttons are offset by 256.
-        std::uint32_t code = button->GetIDCode();
-        if (button->GetDevice() == RE::INPUT_DEVICE::kMouse) {
-            code += 256;
-        } else if (button->GetDevice() != RE::INPUT_DEVICE::kKeyboard) {
-            continue;  // TODO: gamepad bindings.
-        }
-
-        if (code == settings.dodgeKey) {
-            dodge.Set(down);
-        } else if (code == settings.jumpKey) {
-            jump.Set(down);
-        } else if (code == settings.heavyModifier) {
-            heavyModifierHeld = down;
-        } else if (code == settings.walkKey && button->IsDown()) {
-            walk = !walk;
-        } else if (code == settings.lightKey) {
-            // Shift + light is the heavy attack, as in Elden Ring on keyboard.
-            (heavyModifierHeld || heavy.held ? heavy : light).Set(down);
-        } else if (code == settings.guardKey) {
-            guard.Set(down);
+        // Our own controls, by device-tagged code. Every device goes through
+        // the same path, so they cannot differ in edge behaviour.
+        if (const auto device = ToDevice(button->GetDevice())) {
+            controls.Button(InputPlan::Code(*device, button->GetIDCode()), down, button->IsDown());
         }
     }
     return RE::BSEventNotifyControl::kContinue;

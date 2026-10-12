@@ -132,4 +132,47 @@ namespace BridgePlan
         result.hasTranslation = lengthSquared > translationEpsilonSquared;
         return result;
     }
+
+    float NormalizeAngle(float radians)
+    {
+        if (!std::isfinite(radians)) {
+            return 0.0f;
+        }
+        constexpr float tau = 6.2831853071795864769f;
+        return std::remainder(radians, tau);
+    }
+
+    float CameraHeading(const CameraFacts& facts)
+    {
+        const float yaw = std::isfinite(facts.playerYaw) ? facts.playerYaw : 0.0f;
+        const float orbit = facts.freeRotationEnabled && std::isfinite(facts.freeRotationYaw)
+                                ? facts.freeRotationYaw
+                                : 0.0f;
+        return NormalizeAngle(yaw + orbit);
+    }
+
+    float ResolveGroundZ(float feetZ, GroundProbe probe, float maxStepUp)
+    {
+        if (!probe.hit || !std::isfinite(probe.z) || !std::isfinite(feetZ) || !(maxStepUp >= 0.0f)) {
+            return feetZ;
+        }
+        return probe.z > feetZ + maxStepUp ? feetZ : probe.z;
+    }
+
+    LockFacts ResolveLockTarget(std::uint32_t requestedId, std::span<const LockCandidate> candidates)
+    {
+        if (requestedId == 0) {
+            return {};
+        }
+        for (const auto& candidate : candidates) {
+            if (candidate.stableId != requestedId) {
+                continue;
+            }
+            if (candidate.hostile && candidate.alive && candidate.enabled && candidate.loaded &&
+                Finite(candidate.position)) {
+                return { true, candidate.stableId, candidate.position };
+            }
+        }
+        return {};
+    }
 }

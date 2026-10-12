@@ -274,27 +274,34 @@ def check_c_abi(cxx: str, temporary: Path) -> str:
 
 
 def check_bridge_geometry(cxx: str, temporary: Path) -> str:
-    executable = temporary / "combat-math-tests"
-    run(
-        [
-            cxx,
-            "-std=c++2b",
-            "-Wall",
-            "-Wextra",
-            "-Werror",
-            "-I",
-            str(ROOT / "core" / "include"),
-            "-I",
-            str(ROOT / "plugin" / "src"),
-            str(ROOT / "plugin" / "src" / "BridgePlan.cpp"),
-            str(ROOT / "plugin" / "src" / "CombatMath.cpp"),
-            str(ROOT / "plugin" / "tests" / "CombatMathTests.cpp"),
-            "-o",
-            str(executable),
-        ]
+    plugin = ROOT / "plugin"
+    suites = {
+        "combat-math-tests": ["BridgePlan.cpp", "CombatMath.cpp", "tests/CombatMathTests.cpp"],
+        "input-world-tests": ["BridgePlan.cpp", "CombatMath.cpp", "InputPlan.cpp", "tests/InputWorldTests.cpp"],
+    }
+    for name, sources in suites.items():
+        executable = temporary / name
+        run(
+            [
+                cxx,
+                "-std=c++2b",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-I",
+                str(ROOT / "core" / "include"),
+                "-I",
+                str(plugin / "src"),
+                *[str(plugin / ("tests" if source.startswith("tests/") else "src") / Path(source).name) for source in sources],
+                "-o",
+                str(executable),
+            ]
+        )
+        run([str(executable)])
+    return (
+        "native bridge target/movement/geometry and input/heading/ground/lock-on tests "
+        "passed with warnings as errors"
     )
-    run([str(executable)])
-    return "native bridge target/movement/geometry tests passed with warnings as errors"
 
 
 def check_balance_model() -> str:

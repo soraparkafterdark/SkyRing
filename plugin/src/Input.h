@@ -1,15 +1,21 @@
 #pragma once
 
+#include "InputPlan.h"
 #include "er_combat.h"
 
-// Listens to Skyrim's raw input and turns it into the core's ErInput.
+// Listens to Skyrim's raw input and feeds InputPlan::Controls, which owns the
+// device-independent rules (edges, heavy modifier, walk toggle, movement).
 // Movement comes from the remappable Forward/Back/Strafe user events and the
-// left stick, so it follows the player's own bindings.
+// left stick, so it follows the player's own bindings. Keyboard, mouse and
+// gamepad all arrive as one device-tagged control code.
 class Input : public RE::BSTEventSink<RE::InputEvent*>
 {
 public:
     static Input* Get();
     void Register();
+
+    // Re-reads the bindings from Settings.
+    void ApplyBindings();
 
     // The controls since the last call. Clears the one-frame edges.
     ErInput Take(float cameraHeading);
@@ -22,34 +28,5 @@ protected:
     RE::BSEventNotifyControl ProcessEvent(RE::InputEvent* const* a_event, RE::BSTEventSource<RE::InputEvent*>*) override;
 
 private:
-    struct Key
-    {
-        bool held = false;
-        bool pressed = false;
-        bool released = false;
-
-        void Set(bool down)
-        {
-            if (down && !held) {
-                pressed = true;
-            }
-            if (!down && held) {
-                released = true;
-            }
-            held = down;
-        }
-
-        ErButton Take()
-        {
-            ErButton b{ static_cast<std::uint8_t>(held), static_cast<std::uint8_t>(pressed), static_cast<std::uint8_t>(released) };
-            pressed = released = false;
-            return b;
-        }
-    };
-
-    Key dodge, jump, light, heavy, guard;
-    bool heavyModifierHeld = false;
-    bool walk = false;
-    bool forward = false, back = false, left = false, right = false;
-    float stickX = 0.0f, stickY = 0.0f;
+    InputPlan::Controls controls;
 };

@@ -22,6 +22,7 @@ add_commonlibsse_plugin(${PROJECT_NAME}
         src/BridgePlan.cpp
         src/CombatMath.cpp
         src/Input.cpp
+        src/InputPlan.cpp
         src/Settings.cpp
 )
 target_precompile_headers(${PROJECT_NAME} PRIVATE src/PCH.h)

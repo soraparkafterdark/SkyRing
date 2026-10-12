@@ -3,8 +3,12 @@
 //! Everything crossing this boundary is in Skyrim's space: game units
 //! (`UNITS_PER_METRE` to the metre), Z up, and heading in radians with 0
 //! facing +Y and turning clockwise toward +X. The simulation works in metres,
-//! Y up, yaw 0 facing +Z and turning toward +X, so the two yaws agree and only
-//! the axes and scale change.
+//! Y up, yaw 0 facing +Z and turning toward +X (counter-clockwise from above).
+//! Skyrim's axes are right-handed (X east, Y north, Z up), so mapping into the
+//! simulation must be a rotation, not a reflection: X is negated, and the two
+//! yaws are opposite in sign. A reflection would mirror every left/right fact,
+//! so the right stick would strafe left and a right-hand weapon would swing
+//! from the left.
 
 use glam::{Vec2, Vec3};
 
@@ -28,13 +32,15 @@ pub struct ErVec3 {
 }
 
 impl ErVec3 {
+    /// Skyrim (X east, Y north, Z up) to the simulation (Y up, yaw 0 facing
+    /// +Z). X is negated so this is a proper rotation; see the module docs.
     fn to_sim(self) -> Vec3 {
-        Vec3::new(self.x, self.z, self.y) / UNITS_PER_METRE
+        Vec3::new(-self.x, self.z, self.y) / UNITS_PER_METRE
     }
 
     fn from_sim(v: Vec3) -> Self {
         let v = v * UNITS_PER_METRE;
-        Self { x: v.x, y: v.z, z: v.y }
+        Self { x: -v.x, y: v.z, z: v.y }
     }
 }
 
@@ -323,7 +329,7 @@ impl ErCombat {
         }
         ErOutput {
             position: ErVec3::from_sim(p.pos),
-            heading: p.yaw,
+            heading: -p.yaw,
             state,
             action: name,
             action_frame: frame,
@@ -391,7 +397,7 @@ fn button(b: ErButton) -> Button {
 fn sim_input(i: &ErInput) -> Input {
     Input {
         mv: Vec2::new(i.move_x, i.move_y),
-        cam_yaw: i.camera_heading,
+        cam_yaw: -i.camera_heading,
         dodge: button(i.dodge),
         jump: button(i.jump),
         light: button(i.light),
@@ -516,7 +522,7 @@ mod tests {
     fn axes_round_trip() {
         let v = ErVec3 { x: 140.0, y: -70.0, z: 35.0 };
         let sim = v.to_sim();
-        assert_eq!(sim, Vec3::new(2.0, 0.5, -1.0));
+        assert_eq!(sim, Vec3::new(-2.0, 0.5, -1.0));
         assert_eq!(ErVec3::from_sim(sim), v);
     }
 
