@@ -182,3 +182,144 @@ clean runner has produced both DLLs (`notes.windows_runner_verified`).
 - [ ] Magic through the C ABI and the Skyrim bridge (blocked on the consequence ABI and a Skyrim runtime)
 - [ ] Submit observed core contacts through Skyrim's normal hit path (phase B)
 - [ ] Elden Ring animations converted from your own game files (phase B)
+
+---
+
+## Update, 12 October 2026: from a clone to a verified core, and the road still ahead
+
+**In short.** This repository began as a clone of an engine-free Elden Ring combat simulation with a
+thin Skyrim bridge. Over three days it has become a core with a defined authority model (Skyrim owns
+health, stamina and magicka; the core only schedules and multiplies), a verification spine that cannot
+be argued with, a data pipeline ready for the game dump, and the first complete magic system, all
+proven on a Mac and none of it yet run inside Skyrim. Nothing here claims more than `local`.
+
+### Where it started
+
+The first commit (`ec55e55`, 9 October) was the combat logic of
+[Funny-Bones/ELDEN-RING-Combat-Rewrite](https://github.com/Funny-Bones/ELDEN-RING-Combat-Rewrite) as a
+library: about 4,000 lines of Rust (the player state machine, a stand-in action table, a C ABI) and a
+600-line SKSE bridge scaffold. It had one test file, no CI, no verification of any kind, no way to
+bring in game data, and one page of plan.
+
+### What has been added
+
+| Area | Then | Now |
+|---|---|---|
+| Size | 31 files | 119 files, +23,800 lines, 71 commits (19 landed by the Flint swarm) |
+| Rust core | `sim`, `ffi` | adds `balance`, `consequences`, `effects`, `posture`, `trace`, `magic`, `cast`, `magic_world`, `magic_trace`, `spells`, `delivery`, `hazards` |
+| Tests | 1 file | 165 Rust tests (unit, integration, property tests) and 191 Python tool tests |
+| Verification | none | `tools/verify.py` with three profiles (`local`, `source`, `release`) and 13 required gates |
+| Docs | `PLAN.md` | the Charter, architecture, execution plan, dump-independent work list, magic design and status, extraction guide, delivery and hazard audits |
+
+**A verification spine.** A run can only claim what it proved. The `local` profile checks the C/Rust ABI
+three ways (Rust layout, the header, a pinned snapshot, including exported signatures), pins every
+build input (Rust 1.99.0, actions by commit SHA, `cargo --locked`, CMake, Ninja, vcpkg baselines),
+stages the mod archive from an allowlist that refuses owner data, logs and secrets, and runs the
+native bridge-geometry tests with warnings as errors. A missing platform is `BLOCKED`, never a pass.
+Release evidence is captured from a clean exact commit and rejects anything stale: another commit,
+source fingerprint, action table, DLL, log, or acceptance key.
+
+**Authority, made concrete.** Skyrim now owns the stamina pool through the ABI (revision 3): the core reads
+it each update, never regenerates it, and reports what it spent, including guarded hits that arrive
+between updates. Magic follows the same rule for magicka.
+
+**Core systems.** A delivery-neutral hit consequence pipeline (elements, status buildup, buff and debuff
+stacking rules, separate poise and stance meters), bounded balance envelopes (the armament cap is
+1.15x), deterministic sweep-versus-capsule contact geometry, target selection and movement
+reconciliation, input rules that behave identically on keyboard, mouse and gamepad, and a
+perspective-free camera heading. Combat can be recorded and replayed to the byte (trace format v2).
+
+**A data pipeline for the dump.** `tools/owner_data.py` drives the Windows extraction (Nuxe, WitchyBND),
+builds a verified bundle with a source fingerprint, imports it on the Mac with a receipt, and refuses a
+tampered bundle, a re-import, or another game's data. A versioned combat IR validates actions, catalysts
+and spells and forbids absolute damage and requirements at the boundary.
+
+**Magic (this week).** Catalysts (staves and rings, one passive each) with the gear axis from the design
+doc; spells as committed actions with a cancel window, hyperarmour, charge, hand dedication and
+recovery; magicka read from Skyrim and re-checked at the release frame; exactly-once impact correlation;
+buffs, debuffs and statuses through the same pipeline a sword uses; death, unload and form reuse that
+leak nothing; deterministic record and replay of a whole session. Three catalysts and the seven cases of
+the first slice exist as data. Details, tuning inputs and blockers are in
+[`docs/MAGIC_STATUS.md`](docs/MAGIC_STATUS.md).
+
+**Bows, throwables, consumables and hazards.** `delivery.rs` and `hazards.rs`, written by a second agent,
+model committed bow draw and release, arrow payloads, throwables and environmental hazards as
+calibrated estimates on the shared pipeline. They compile and pass their tests but have **not been
+reviewed**.
+
+### Defects found and fixed
+
+- **The core was mirrored.** The Skyrim-to-simulation axis mapping was a reflection, not a rotation.
+  Forward and heading survived, but the right stick strafed left and left/right dodge labels were
+  swapped. Regression tests fail on the old mapping.
+- **Fragile baselines.** A tool test that needed `pytest` on a bare Python, and a fixture that wrote a
+  file named `.env`, broke the swarm's baseline; both are fixed and guarded by a test.
+
+### How it was built, and what that taught
+
+Work ran through three kinds of agent: a lead session, the **Flint swarm** (free OpenRouter models, 19
+commits landed, mostly test-pinning and tooling), and a **GLM-based helper** that wrote the spell matrix
+and reviewed the code. Three lessons are worth keeping:
+
+1. **Small models write tests that cannot fail.** The helper's first property tests all passed while
+   6 of 8 deliberate bugs went undetected. `tools/mutate_magic.py` breaks the library on purpose and
+   checks a test notices; after being sent back with it, every mutant was caught. Treat any
+   untested-by-mutation test as unproven.
+2. **Free models fail in predictable ways** (`use core::` instead of the crate name, private items,
+   "cargo is unavailable", a decomposer that splits a one-file task into scope-less children). The
+   swarm's packets, scope gates and config were hardened, and the findings are written down in Flint's
+   `bench/skyring/GUIDANCE.md`.
+3. **A reviewer is not optional.** The helper's design review was right about a real defect (passives
+   stack, per the design doc); its test claims needed independent checking.
+
+### What "done" means here, and what is not
+
+Everything above is proven by host tests and the `local` profile. **Nothing has run inside Skyrim.**
+Every timing, magnitude and cost is a synthetic stand-in or an estimate until the owner's Elden Ring
+extraction exists; numbers the Charter does not fix (catalyst scaling bounds, cast timings) are marked
+as tuning inputs, not facts. Agreement between two parts of this code is not extraction validation. The
+Windows build has been written but never confirmed on a runner, and the C++ added this week (input
+routing, settings, camera heading) has not been compiled.
+
+### The road to the rest
+
+The manifest (`swarm/tasks.json`) lists 33 tasks in 17 ordered phases; 18 need no owner data. The honest
+position per phase:
+
+| Phase | Host-side work | Still needed |
+|---|---|---|
+| Foundation | traces, IR, builds, evidence capture: **done (`local`)** | a Windows runner confirming both DLLs; a real CrossOver evidence run |
+| Owner data | dump tool and rehearsal tests: **done** | the real dump; source action table; animation conversion (all need the downloaded games) |
+| Colossal-sword slice | input rules, heading, hit classification, stamina authority, trace: **done** | ground ray cast and lock-on read; character-controller motion; submitting hits through Skyrim's native path; both-perspective presentation; the CrossOver proof |
+| Balance | bounded policy: **done** | real action and armament numbers from the dump |
+| Consequences, posture | core meters and pipeline: **done** | the consequence ABI and save envelope; Skyrim adapters; the proofs |
+| Bows | contracts (unreviewed) | review; the projectile adapter; one bow and three arrows proven |
+| Gear axis, catalysts, magic | core and data: **done (`local`)** | magic through the C ABI; staff-record replacement; catalyst forms; the seven-case CrossOver proof |
+| Enemy symmetry, breadth, Torrent, encounter, release, megafauna | not started | everything above first (the Charter order puts megafauna last) |
+
+**What it takes, in order.**
+
+1. **Review and decide (days, no new tooling).** Review `delivery.rs` and `hazards.rs`. Decide the open
+   design questions in `docs/Magic overhaul.md`: what governs Scaling beyond the school skill, enchanting
+   versus catalyst upgrades, and whether a second ring slot works with your framework.
+2. **The dump (one evening on the ThinkCentre).** Run the extraction with `tools/owner_data.py`, import the
+   bundle on the Mac, and the `source` profile becomes possible: real timings, root motion, sweeps and
+   costs replace the estimates. Rebalance the tuning inputs against them.
+3. **Prove the Windows build.** Push, let CI build both DLLs on a clean runner, and fix what the unbuilt
+   C++ turns up. This also settles the MSVC toolset pin.
+4. **First in-game session under CrossOver.** Confirm the gamepad masks, camera heading in both
+   perspectives, and the native hit path; replace the flat-ground and no-target placeholders.
+5. **The vertical slice.** One colossal sword against one test actor, satisfying all 14 release assertions
+   with an evidence bundle tied to the exact commit and source fingerprint.
+6. **Then the Charter order:** consequences ABI, posture, bows, then magic and catalysts through the ABI
+   and bridge, then breadth.
+
+**The risks.** CrossOver and the Skyrim bridge are the unknowns: none of the runtime work has been
+exercised, and the plan's 14 assertions include one-frame timing agreement and perspective parity.
+The extraction depends on third-party tools (Nuxe, WitchyBND) and the owner's copy of the game.
+Several magic bounds are guesses until a mage has been played from level 1 to 30. And the free-model
+swarm is limited by its request budget, so it is best at narrow, specified, test-first packets, not at
+design.
+
+**To check it yourself:** `python3 tools/verify.py --profile local` (about a minute), and
+`python3 tools/mutate_magic.py . magic_adversarial` to see the tests being tested.
