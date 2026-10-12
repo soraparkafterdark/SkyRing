@@ -1,14 +1,15 @@
 {
-  "schema_version": 1,
-  "working_tree_clean": true,
+  "schema_version": 2,
   "commit": "replace-with-full-git-commit",
-  "source_data_sha256": "replace-with-extracted-rs-sha256",
+  "working_tree_clean": true,
+  "source_fingerprint": "replace-with-owner-data-source-fingerprint",
+  "action_table_sha256": "replace-with-extracted-rs-sha256",
   "capture_manifest": {
     "path": "verification/out/evidence.json",
     "sha256": "replace-with-sha256"
   },
   "elden_ring_build": "record-source-game-build",
-  "skyrim_version": "1.6.1170",
+  "skyrim_version": "record-skyrim-version",
   "crossover_version": "record-version",
   "apple_hardware": "record-model-and-chip",
   "artifacts": [
@@ -57,5 +58,5 @@
     "perspective_toggle_continuity": [],
     "perspective_timing_geometry_parity": []
   },
-  "notes": "Template only. Capture hashes from a clean exact commit with tools/evidence.py --require-clean. Keep every acceptance value false until the runtime harness records direct CrossOver evidence for that assertion; do not hand-promote host-test results."
+  "notes": "Template only; do not copy it by hand. `python3 tools/evidence.py capture` writes verification/runtime-evidence.json from a clean exact commit and promotes an assertion only when a log event id, tick range, or capture locator is cited (--accept KEY=log_event:ID | KEY=ticks:START-END | KEY=capture:PATH). tools/verify.py --profile release rejects placeholders, false or uncited assertions, and evidence for another commit, source fingerprint, action table, artifact, log, or acceptance key."
 }

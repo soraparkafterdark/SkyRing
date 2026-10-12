@@ -402,45 +402,31 @@ def resolve_evidence_path(raw: str) -> Path:
     return path if path.is_absolute() else ROOT / path
 
 
-def check_runtime_evidence(contract: dict[str, Any], source_hash: str | None) -> str:
-    if source_hash is None:
+def check_runtime_evidence(contract: dict[str, Any], source_fingerprint: str | None) -> str:
+    if source_fingerprint is None:
         raise VerificationError("release evidence cannot be checked without owner-extracted source data")
-    evidence = load_json(EVIDENCE_PATH)
-    if evidence.get("schema_version") != 1:
-        raise VerificationError("unsupported runtime evidence schema")
+    import evidence as evidence_tool
+
+    manifest = load_json(EVIDENCE_PATH)
     head = run(["git", "rev-parse", "HEAD"]).strip()
-    if evidence.get("commit") != head:
-        raise VerificationError("runtime evidence does not match the current Git commit")
-    if evidence.get("source_data_sha256") != source_hash:
-        raise VerificationError("runtime evidence does not match the current extracted action table")
-
-    for field in ("elden_ring_build", "skyrim_version", "crossover_version", "apple_hardware"):
-        value = evidence.get(field)
-        if not isinstance(value, str) or not value.strip() or "record-" in value:
-            raise VerificationError(f"runtime evidence field {field!r} is missing or still a placeholder")
-
-    artifacts = evidence.get("artifacts")
-    if not isinstance(artifacts, list) or len(artifacts) < 2:
-        raise VerificationError("runtime evidence must fingerprint both DLL artifacts")
-    for artifact in artifacts:
-        if not isinstance(artifact, dict):
-            raise VerificationError("invalid artifact evidence entry")
-        path = resolve_evidence_path(str(artifact.get("path", "")))
-        if not path.is_file() or artifact.get("sha256") != sha256(path):
-            raise VerificationError(f"missing or hash-mismatched runtime artifact: {path}")
-
-    runtime_log = evidence.get("runtime_log")
-    if not isinstance(runtime_log, dict):
-        raise VerificationError("runtime log evidence is missing")
-    log_path = resolve_evidence_path(str(runtime_log.get("path", "")))
-    if not log_path.is_file() or runtime_log.get("sha256") != sha256(log_path):
-        raise VerificationError("runtime log is missing or its hash does not match")
-
-    acceptance = evidence.get("acceptance")
-    for assertion in contract["release_acceptance"]:
-        if not isinstance(acceptance, dict) or acceptance.get(assertion) is not True:
-            raise VerificationError(f"release assertion has not passed: {assertion}")
-    return f"runtime artifacts, log, and {len(contract['release_acceptance'])} acceptance assertions verified"
+    clean = not run(["git", "status", "--porcelain", "--untracked-files=all"]).strip()
+    problems = evidence_tool.validate_runtime_evidence(
+        manifest,
+        repo=ROOT,
+        head=head,
+        working_tree_clean=clean,
+        source_fingerprint=source_fingerprint,
+        action_table_sha256=sha256(EXTRACTED_PATH),
+        acceptance_keys=list(contract["release_acceptance"]),
+    )
+    if problems:
+        shown = "\n  - ".join(problems[:20])
+        more = f"\n  ... and {len(problems) - 20} more" if len(problems) > 20 else ""
+        raise VerificationError(f"runtime evidence is not acceptable ({len(problems)}):\n  - {shown}{more}")
+    return (
+        f"commit {head[:12]}, source fingerprint, both DLLs, runtime log, and "
+        f"{len(contract['release_acceptance'])} cited acceptance assertions verified"
+    )
 
 
 def main() -> int:

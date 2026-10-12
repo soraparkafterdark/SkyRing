@@ -114,20 +114,31 @@ exact commit, extracted data, Windows DLLs, runtime log, and every melee-slice
 acceptance assertion. The operational rules for coding agents are in
 [`AGENTS.md`](AGENTS.md).
 
-For release-oriented file fingerprints, require a clean exact commit and keep
-the resulting ignored report out of source control:
+Release evidence is captured from a clean exact commit, after the Windows DLLs
+exist and a CrossOver run has written `verification/out/runtime.log`:
 
 ```bash
-python3 tools/evidence.py fingerprint --require-clean \
-  plugin/dist/SKSE/Plugins/ERCombat.dll \
-  plugin/dist/SKSE/Plugins/er_combat_core.dll \
-  verification/out/runtime.log
+python3 tools/evidence.py capture \
+  --elden-ring-build <steam build id> --skyrim-version <version> \
+  --crossover-version <version> \
+  --accept input=log_event:<event id in the log> \
+  --accept stamina=ticks:<start>-<end> \
+  --accept hit_stop=capture:verification/out/<capture file>
 ```
 
-The release manifest references that capture by hash. Every promoted runtime
-acceptance assertion also names a non-placeholder log event ID, tick/frame
-range, or capture locator in `acceptance_evidence`; a bare boolean is not
-evidence.
+`capture` writes two ignored files: `verification/out/evidence.json` (hashes of
+both DLLs, the log, and any cited capture, taken with the commit and clean-tree
+state) and `verification/runtime-evidence.json`. It records only what it can
+measure, takes the source fingerprint from the validated owner-data receipt,
+and promotes an assertion only when a log event id, tick range, or capture
+locator is cited; a bare boolean is not evidence. It prints every remaining
+problem and exits non-zero until none is left.
+
+`python3 tools/verify.py --profile release` is the authority. It rejects
+placeholders, missing fields, a dirty tree, and evidence for another commit,
+source fingerprint, action table, DLL, log, capture, or acceptance key, and
+requires each cited log event to occur in the hashed log. `tools/evidence.py
+fingerprint --require-clean <files>` remains available for ad-hoc hashing.
 
 ## Status
 
