@@ -45,16 +45,23 @@ class OwnerDataTests(unittest.TestCase):
         game = root / "Game"
         (source / "chr").mkdir(parents=True)
         (source / "regulation-bin").mkdir(parents=True)
+        (source / "sd").mkdir(parents=True)
+        (source / "sd" / "enus").mkdir(parents=True)
         (upstream / "src" / "sim").mkdir(parents=True)
         (upstream / "assets").mkdir(parents=True)
+        (upstream / "assets" / "sounds").mkdir(parents=True)
         game.mkdir()
         for name in owner_data.ANIMATION_BINDERS:
             (source / "chr" / name).write_bytes(f"animation:{name}".encode())
         (source / "regulation.bin").write_bytes(b"encrypted regulation")
         (source / "regulation-bin" / "EquipParamWeapon.param").write_bytes(b"param")
         (source / "oo2core_6_win64.dll").write_bytes(b"owner oodle")
+        for name in owner_data.SOUND_BANKS:
+            (source / name).write_bytes(f"sound:{name}".encode())
         (upstream / "src" / "sim" / "extracted.rs").write_text("// extracted\n", encoding="utf-8")
         (upstream / "assets" / "player_anims.bin").write_bytes(b"animations")
+        (upstream / "assets" / "player_sounds.bin").write_bytes(b"player sounds")
+        (upstream / "assets" / "sounds" / "footstep.wav").write_bytes(b"footstep")
         (game / "eldenring.exe").write_bytes(b"game build")
         return source, upstream, game
 
@@ -160,6 +167,69 @@ class OwnerDataTests(unittest.TestCase):
             self.assertFalse((repo / "owner_data" / fingerprint).is_dir())
             self.assertFalse((repo / "owner_data" / "current.json").is_file())
             self.assertFalse((repo / "core" / "src" / "sim" / "extracted.rs").is_file())
+
+    def test_sounds_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, upstream, game = self.make_fixture(root)
+            bundle = root / "owner-data.zip"
+            owner_data.create_bundle(source, upstream, game, True, bundle, False)
+            manifest = owner_data.validate_bundle(bundle)
+            self.assertTrue(manifest["source_game"]["sounds_included"])
+            for name in owner_data.SOUND_BANKS:
+                self.assertIn(f"source/{name}", manifest["files"])
+            for name in owner_data.ANIMATION_BINDERS:
+                self.assertIn(f"source/chr/{name}", manifest["files"])
+            self.assertIn("generated/assets/player_sounds.bin", manifest["files"])
+            self.assertNotIn(str(root), json.dumps(manifest), "manifest must not leak local paths")
+
+    def test_sounds_import(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, upstream, game = self.make_fixture(root)
+            bundle = root / "owner-data.zip"
+            owner_data.create_bundle(source, upstream, game, True, bundle, False)
+
+            repo = root / "repo"
+            (repo / "core" / "src" / "sim").mkdir(parents=True)
+            (repo / "verification").mkdir()
+            (repo / "verification" / "contract.json").write_text("{}\n", encoding="utf-8")
+
+            fingerprint = owner_data.sha256(bundle)[:16]
+            private_root = owner_data.import_bundle(bundle, repo, False)
+            self.assertEqual(private_root, repo / "owner_data" / fingerprint)
+            self.assertTrue((repo / "core" / "src" / "sim" / "extracted.rs").is_file())
+            self.assertTrue((private_root / "source" / "sd" / "cs_smain.bnk").is_file())
+            self.assertTrue((private_root / "generated" / "assets" / "player_sounds.bin").is_file())
+            self.assertTrue((private_root / "manifest.json").is_file())
+
+    def test_sounds_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            upstream = root / "upstream"
+            game = root / "Game"
+            (source / "chr").mkdir(parents=True)
+            (source / "regulation-bin").mkdir(parents=True)
+            (source / "sd").mkdir(parents=True)
+            (source / "sd" / "enus").mkdir(parents=True)
+            (upstream / "src" / "sim").mkdir(parents=True)
+            (upstream / "assets").mkdir(parents=True)
+            (upstream / "assets" / "sounds").mkdir(parents=True)
+            game.mkdir()
+            for name in owner_data.ANIMATION_BINDERS:
+                (source / "chr" / name).write_bytes(f"animation:{name}".encode())
+            (source / "regulation.bin").write_bytes(b"encrypted regulation")
+            (source / "regulation-bin" / "EquipParamWeapon.param").write_bytes(b"param")
+            (source / "oo2core_6_win64.dll").write_bytes(b"owner oodle")
+            (source / "sd" / "cs_smain.bnk").write_bytes(b"sound:cs_smain")
+            (upstream / "src" / "sim" / "extracted.rs").write_text("// extracted\n", encoding="utf-8")
+            (upstream / "assets" / "player_anims.bin").write_bytes(b"animations")
+            (upstream / "assets" / "player_sounds.bin").write_bytes(b"player sounds")
+            (upstream / "assets" / "sounds" / "footstep.wav").write_bytes(b"footstep")
+            (game / "eldenring.exe").write_bytes(b"game build")
+            with self.assertRaisesRegex(owner_data.OwnerDataError, "bundle input is missing:"):
+                owner_data.create_bundle(source, upstream, game, True, root / "bundle.zip", False)
 
 
 if __name__ == "__main__":
