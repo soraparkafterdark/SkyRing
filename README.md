@@ -140,6 +140,26 @@ source fingerprint, action table, DLL, log, capture, or acceptance key, and
 requires each cited log event to occur in the hashed log. `tools/evidence.py
 fingerprint --require-clean <files>` remains available for ad-hoc hashing.
 
+## Reproducible builds and packaging
+
+Every build input is pinned and checked by the local profile:
+
+- `abi_layout` (`tools/abi_gate.py`) compares the Rust layout, the C header, and
+  the pinned `verification/abi-layout.json` (sizes, offsets, enum values,
+  `extern "C"` signatures). An intentional ABI change is recorded with
+  `python3 tools/abi_gate.py --update`, which bumps the snapshot revision.
+- `build_pins` (`tools/build_pins.py`) requires an exact Rust version
+  (`core/rust-toolchain.toml`), actions pinned to commit SHAs, `cargo --locked`,
+  pinned CMake/Ninja, vcpkg baselines, and runner images, all matching
+  `verification/build-pins.json`.
+- `package_inventory` (`tools/package_mod.py`) stages the mod archive from an
+  explicit allowlist and refuses owner data, generated animation/audio, logs,
+  and secrets. The zip is byte-reproducible. Without the Windows DLLs it reports
+  `BLOCKED`, never a pass.
+
+None of this proves a Windows runner builds yet: that stays BLOCKED until a
+clean runner has produced both DLLs (`notes.windows_runner_verified`).
+
 ## Status
 
 - [x] Core as a library with an explicitly checked C interface
