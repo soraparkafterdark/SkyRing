@@ -35,7 +35,7 @@ static bool field_first = true;
 static_assert(std::is_same_v<decltype(&er_create), ErCombat* (*)(ErVec3)>);
 static_assert(std::is_same_v<decltype(&er_destroy), void (*)(ErCombat*)>);
 static_assert(std::is_same_v<decltype(&er_update), void (*)(ErCombat*, float, const ErInput*, const ErWorld*, ErOutput*)>);
-static_assert(std::is_same_v<decltype(&er_receive_hit), ErHitResult (*)(ErCombat*, ErVec3, uint8_t, ErHurt)>);
+static_assert(std::is_same_v<decltype(&er_receive_hit), ErHitResult (*)(ErCombat*, ErVec3, uint8_t, uint32_t)>);
 static_assert(std::is_same_v<decltype(&er_confirm_hit), void (*)(ErCombat*)>);
 
 int main() {
@@ -77,7 +77,7 @@ int main() {
     VALUE(ER_ACTION_, HURT); VALUE(ER_ACTION_, COUNT);
     END_ENUM();
     BEGIN_ENUM(ErHurt);
-    VALUE(ER_HURT_, SMALL); VALUE(ER_HURT_, MIDDLE); VALUE(ER_HURT_, LARGE); VALUE(ER_HURT_, KNOCKDOWN);
+    VALUE(ER_HURT_, SMALL); VALUE(ER_HURT_, MIDDLE); VALUE(ER_HURT_, LARGE); VALUE(ER_HURT_, KNOCKDOWN); VALUE(ER_HURT_, COUNT);
     END_ENUM();
     BEGIN_ENUM(ErHitResult);
     VALUE(ER_HIT_, IGNORED); VALUE(ER_HIT_, DODGED); VALUE(ER_HIT_, JUMPED); VALUE(ER_HIT_, BLOCKED);

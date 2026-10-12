@@ -80,7 +80,7 @@
           "ptr:ErCombat",
           "ErVec3",
           "u8",
-          "ErHurt"
+          "u32"
         ],
         "returns": "ErHitResult"
       },
@@ -175,6 +175,6 @@
       }
     }
   },
-  "revision": 1,
+  "revision": 2,
   "schema_version": 1
 }

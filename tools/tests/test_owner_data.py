@@ -215,14 +215,14 @@ class OwnerDataTests(unittest.TestCase):
             root = Path(directory)
             source, upstream, game = self.make_fixture(root)
             bundle = root / "owner-data.zip"
-            owner_data.create_bundle(source, upstream, game, False, bundle, False)
+            owner_data.create_bundle(source, upstream, game, False, bundle, False, "12345678")
 
             repo = root / "repo"
             (repo / "core" / "src" / "sim").mkdir(parents=True)
             (repo / "verification").mkdir()
             (repo / "verification" / "contract.json").write_text("{}\n", encoding="utf-8")
 
-            fingerprint = owner_data.sha256(bundle)[:16]
+            fingerprint = owner_data.validate_bundle(bundle)["source_fingerprint"][:16]
             private_root = owner_data.import_bundle(bundle, repo, False)
             self.assertTrue((private_root / "manifest.json").is_file())
 
@@ -238,7 +238,7 @@ class OwnerDataTests(unittest.TestCase):
             root = Path(directory)
             source, upstream, game = self.make_fixture(root)
             bundle = root / "owner-data.zip"
-            owner_data.create_bundle(source, upstream, game, False, bundle, False)
+            owner_data.create_bundle(source, upstream, game, False, bundle, False, "12345678")
 
             tampered = root / "tampered.zip"
             first_binder = owner_data.ANIMATION_BINDERS[0]
@@ -259,7 +259,7 @@ class OwnerDataTests(unittest.TestCase):
             with self.assertRaisesRegex(owner_data.OwnerDataError, "bundle member failed size/hash verification: source/chr/"):
                 owner_data.import_bundle(tampered, repo, False)
 
-            fingerprint = owner_data.sha256(bundle)[:16]
+            fingerprint = owner_data.validate_bundle(bundle)["source_fingerprint"][:16]
             self.assertFalse((repo / "owner_data" / fingerprint).is_dir())
             self.assertFalse((repo / "owner_data" / "current.json").is_file())
             self.assertFalse((repo / "core" / "src" / "sim" / "extracted.rs").is_file())
@@ -269,7 +269,7 @@ class OwnerDataTests(unittest.TestCase):
             root = Path(directory)
             source, upstream, game = self.make_fixture(root)
             bundle = root / "owner-data.zip"
-            owner_data.create_bundle(source, upstream, game, True, bundle, False)
+            owner_data.create_bundle(source, upstream, game, True, bundle, False, "12345678")
             manifest = owner_data.validate_bundle(bundle)
             self.assertTrue(manifest["source_game"]["sounds_included"])
             for name in owner_data.SOUND_BANKS:
@@ -284,14 +284,14 @@ class OwnerDataTests(unittest.TestCase):
             root = Path(directory)
             source, upstream, game = self.make_fixture(root)
             bundle = root / "owner-data.zip"
-            owner_data.create_bundle(source, upstream, game, True, bundle, False)
+            owner_data.create_bundle(source, upstream, game, True, bundle, False, "12345678")
 
             repo = root / "repo"
             (repo / "core" / "src" / "sim").mkdir(parents=True)
             (repo / "verification").mkdir()
             (repo / "verification" / "contract.json").write_text("{}\n", encoding="utf-8")
 
-            fingerprint = owner_data.sha256(bundle)[:16]
+            fingerprint = owner_data.validate_bundle(bundle)["source_fingerprint"][:16]
             private_root = owner_data.import_bundle(bundle, repo, False)
             self.assertEqual(private_root, repo / "owner_data" / fingerprint)
             self.assertTrue((repo / "core" / "src" / "sim" / "extracted.rs").is_file())
@@ -325,7 +325,7 @@ class OwnerDataTests(unittest.TestCase):
             (upstream / "assets" / "sounds" / "footstep.wav").write_bytes(b"footstep")
             (game / "eldenring.exe").write_bytes(b"game build")
             with self.assertRaisesRegex(owner_data.OwnerDataError, "bundle input is missing:"):
-                owner_data.create_bundle(source, upstream, game, True, root / "bundle.zip", False)
+                owner_data.create_bundle(source, upstream, game, True, root / "bundle.zip", False, "12345678")
 
 
     def test_action_validation(self) -> None:

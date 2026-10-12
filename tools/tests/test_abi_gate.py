@@ -108,20 +108,17 @@ class HeaderProbeTests(unittest.TestCase):
         layout = self.c_layout()
         self.assertEqual(abi_gate.diff_layouts({k: pinned[k] for k in ("structs", "enums")}, layout, "snapshot", "header"), [])
 
-    def test_added_field_changes_layout(self) -> None:
-        layout = self.c_layout(lambda header: header.replace("uint8_t crouch, walk;", "uint8_t crouch, walk, sprint;"))
+    def test_added_field_is_caught_by_the_headers_own_asserts(self) -> None:
+        with self.assertRaisesRegex(abi_gate.AbiError, "does not compile"):
+            self.c_layout(lambda header: header.replace("uint8_t crouch, walk;", "uint8_t crouch, walk, sprint;"))
+
+    def test_size_neutral_field_swap_changes_offsets(self) -> None:
+        layout = self.c_layout(lambda header: header.replace(
+            "uint8_t lock, two_hand_right, two_hand_left;", "uint8_t two_hand_right, lock, two_hand_left;"
+        ))
         pinned = real_layout()
         problems = abi_gate.diff_layouts({k: pinned[k] for k in ("structs", "enums")}, layout, "snapshot", "header")
         self.assertTrue(any("ErInput" in problem for problem in problems), problems)
-
-    def test_reordered_fields_change_offsets(self) -> None:
-        layout = self.c_layout(
-            lambda header: header.replace(
-                "float move_x, move_y; /* stick", "float move_y, move_x; /* stick"
-            )
-        )
-        pinned = real_layout()
-        self.assertNotEqual(layout["structs"]["ErInput"], pinned["structs"]["ErInput"])
 
     def test_changed_enum_value_is_visible(self) -> None:
         layout = self.c_layout(lambda header: header.replace("ER_HIT_BLOCKED = 3", "ER_HIT_BLOCKED = 13"))

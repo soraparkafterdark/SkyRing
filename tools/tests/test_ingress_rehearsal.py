@@ -18,14 +18,14 @@ TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
 sys.path.insert(0, str(TESTS.parent))
 import owner_data  # noqa: E402
-from test_owner_data import OwnerDataTests  # noqa: E402
+import test_owner_data  # noqa: E402
 
 BUILD_ID = "12345678"
 
 
 def make_fixture(root: Path) -> tuple[Path, Path, Path]:
     # Reuse the synthetic dump builder rather than inventing a second one.
-    return OwnerDataTests("test_nuxe_filter_is_exact_and_sound_is_opt_in").make_fixture(root)
+    return test_owner_data.OwnerDataTests("test_nuxe_filter_is_exact_and_sound_is_opt_in").make_fixture(root)
 
 
 def make_checkout(root: Path, *, with_core_sim: bool = True) -> Path:
