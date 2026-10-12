@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "rust": "1.99.0",
+  "runners": {
+    "local-contract": "macos-14",
+    "windows-plugin": "windows-2022"
+  },
+  "windows": {
+    "cmake": "3.31.10",
+    "ninja": "1.13.2",
+    "python": "3.12"
+  },
+  "notes": {
+    "commonlib": "Resolved by the vcpkg registry baselines in plugin/vcpkg-configuration.json.",
+    "msvc": "Recorded in the build-info artifact on every Windows run; the Visual Studio version is fixed by the windows-2022 image, not by this file.",
+    "windows_runner_verified": false
+  }
+}

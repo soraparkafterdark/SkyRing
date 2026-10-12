@@ -12,17 +12,27 @@ concurrency:
   group: verify-${{ github.ref }}
   cancel-in-progress: true
 
+# Every input is pinned: actions by commit SHA, the Rust compiler by exact
+# version, CMake and Ninja by exact PyPI version, runners by image name, and
+# cargo runs with --locked. verification/build-pins.json is the source of
+# truth and `python3 tools/build_pins.py` fails if this file drifts from it.
+env:
+  RUST_VERSION: "1.99.0"
+
 jobs:
   local-contract:
     name: Local contract (macOS)
     runs-on: macos-14
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v7
+      - name: Install the pinned Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_VERSION" --profile minimal
+          rustup default "$RUST_VERSION"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
       - name: Set isolated repository identity
@@ -37,10 +47,20 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - name: Install the pinned Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install $env:RUST_VERSION --profile minimal
+          rustup default $env:RUST_VERSION
+      - name: Install pinned CMake and Ninja
+        shell: pwsh
+        run: python -m pip install --disable-pip-version-check "cmake==3.31.10" "ninja==1.13.2"
       - name: Select the Visual Studio x64 compiler
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         with:
@@ -53,13 +73,13 @@ jobs:
           }
       - name: Build Rust core DLL
         working-directory: core
-        run: cargo build --release
+        run: cargo build --release --locked
       - name: Expose runner vcpkg to CMake preset
         shell: pwsh
         run: Add-Content -Path $env:GITHUB_ENV -Value "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT"
       - name: Restore vcpkg dependencies
         id: vcpkg-cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             plugin/build/vcpkg_installed
@@ -70,7 +90,7 @@ jobs:
         run: cmake --preset release
       - name: Save vcpkg dependencies
         if: steps.vcpkg-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             plugin/build/vcpkg_installed
@@ -79,10 +99,28 @@ jobs:
       - name: Build SKSE plugin
         working-directory: plugin
         run: cmake --build --preset release
+      - name: Record the toolchain that produced the DLLs
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force verification/out | Out-Null
+          $record = @(
+            "rustc: $(rustc --version)",
+            "cargo: $(cargo --version)",
+            "cmake: $((cmake --version | Select-Object -First 1))",
+            "ninja: $(ninja --version)",
+            "cl: $((cl 2>&1 | Select-Object -First 1))",
+            "commit: $env:GITHUB_SHA"
+          )
+          $record | Set-Content verification/out/build-info.txt
+          $record
+      - name: Stage the synthetic mod archive
+        run: python tools/package_mod.py --out verification/out/package
       - name: Upload non-release build for inspection
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: skyring-windows-synthetic-${{ github.sha }}
-          path: plugin/dist/SKSE/Plugins/
+          path: |
+            verification/out/package/
+            verification/out/build-info.txt
           if-no-files-found: error
           retention-days: 7

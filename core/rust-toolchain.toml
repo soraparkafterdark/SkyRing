@@ -1,0 +1,5 @@
+# Single compiler for every build (macOS gates, Windows DLLs). Keep in sync
+# with verification/build-pins.json; tools/build_pins.py enforces it.
+[toolchain]
+channel = "1.99.0"
+profile = "minimal"
