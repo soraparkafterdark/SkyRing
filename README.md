@@ -173,9 +173,12 @@ clean runner has produced both DLLs (`notes.windows_runner_verified`).
 - [x] Core sweep/native Skyrim melee-hit reconciliation (diagnostic opt-in)
 - [x] macOS contract verification and Windows SKSE compile CI
 - [x] SKSE bridge scaffold: combat mode, input, action → animation event, i-frames
+- [x] Skyrim-owned stamina pool and spend report through the ABI (revision 3)
+- [x] Magic core, host-tested (`local` only): catalyst gear axis, spells as committed actions, exactly-once impact correlation, buffs/debuffs/statuses through the shared pipeline, deterministic replay. Status, tuning inputs and blockers: [`docs/MAGIC_STATUS.md`](docs/MAGIC_STATUS.md)
 - [ ] Synchronized first-/third-person animation presentation and mid-action switching
 - [ ] First in-game build and test on 1.6.1170
 - [ ] Lock-on target from True Directional Movement
-- [ ] Gamepad bindings
+- [ ] Gamepad bindings verified in game (the input rules and defaults exist and are host-tested; the Windows build and the button masks are unverified)
+- [ ] Magic through the C ABI and the Skyrim bridge (blocked on the consequence ABI and a Skyrim runtime)
 - [ ] Submit observed core contacts through Skyrim's normal hit path (phase B)
 - [ ] Elden Ring animations converted from your own game files (phase B)
