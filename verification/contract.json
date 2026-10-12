@@ -17,9 +17,12 @@
         "proprietary_data_guard",
         "rust_tests",
         "c_abi",
+        "abi_layout",
         "bridge_geometry",
+        "package_inventory",
         "owner_data_tool",
         "swarm_sandbox",
+        "build_pins",
         "balance_model",
         "balance_report"
       ]

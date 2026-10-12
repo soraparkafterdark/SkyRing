@@ -1,0 +1,33 @@
+{
+  "ir_version": 1,
+  "provenance": {
+    "source": "synthetic",
+    "generator": "Skytest",
+    "data_fingerprint": null
+  },
+  "units": {
+    "time": "s",
+    "distance": "m",
+    "angle": "deg"
+  },
+  "actions": [
+    {
+      "id": "dodge_roll",
+      "duration_s": 0.6,
+      "stamina_cost": 15,
+      "iframes_s": [
+        [0.10, 0.40]
+      ],
+      "hit_windows_s": [],
+      "cancel_windows_s": [
+        [0.40, 0.60]
+      ],
+      "root_motion_m": [
+        [0.0, 0.0, 0.0],
+        [0.1, 5.0, 0.0],
+        [0.6, 5.0, 0.0]
+      ],
+      "sweeps_m": []
+    }
+  ]
+}

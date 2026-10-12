@@ -333,6 +333,58 @@ def check_swarm_sandbox() -> str:
     return f"swarm manifest valid; {independent}/{total} tasks are dump-independent"
 
 
+def check_abi_layout(cargo: Path, env: dict[str, str], cxx: str, temporary: Path) -> str:
+    import abi_gate
+
+    try:
+        return abi_gate.check(cargo, env, cxx, temporary)
+    except abi_gate.AbiError as error:
+        raise VerificationError(str(error)) from error
+
+
+def check_build_pins(cargo: Path) -> str:
+    import build_pins
+
+    try:
+        detail = build_pins.check()
+        local = build_pins.check_local_compiler(cargo.with_name("rustc"), build_pins.load_pins(ROOT))
+    except build_pins.PinError as error:
+        raise VerificationError(str(error)) from error
+    return f"{detail}; {local}"
+
+
+def check_package_inventory(temporary: Path) -> str:
+    """Prove the packaging gate on synthetic inputs, and say what the real dist holds."""
+    import package_mod
+
+    synthetic = temporary / "package-dist"
+    for name, data in {
+        "SKSE/Plugins/ERCombat.dll": b"synthetic plugin",
+        "SKSE/Plugins/er_combat_core.dll": b"synthetic core",
+        "SKSE/Plugins/ERCombat.ini": b"[General]\n",
+    }.items():
+        path = synthetic / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    absent = temporary / "no-extracted.rs"
+    try:
+        _, inventory = package_mod.package(synthetic, temporary / "package-out", extracted=absent)
+        (synthetic / "SKSE/Plugins/player_anims.bin").write_bytes(b"generated animation")
+        try:
+            package_mod.package(synthetic, temporary / "package-out-forbidden", extracted=absent)
+        except package_mod.PackageError:
+            pass
+        else:
+            raise VerificationError("packaging accepted a forbidden generated-animation file")
+        try:
+            real = f"real dist inventory: {len(package_mod.collect_inputs(package_mod.DIST))} files present"
+        except package_mod.Blocked:
+            real = "real Windows DLLs absent: real artifact inventory is BLOCKED"
+    except package_mod.PackageError as error:
+        raise VerificationError(str(error)) from error
+    return f"packaging gate verified on {len(inventory['files'])} synthetic files; {real}"
+
+
 def check_balance_report(cargo: Path, env: dict[str, str]) -> str:
     output = run(
         [str(cargo), "run", "--quiet", "--bin", "balance_report"],
@@ -457,10 +509,21 @@ def main() -> int:
             lambda: unavailable(cxx_error) if cxx_error else check_c_abi(cxx, temporary),
         )
         gate(
+            "abi_layout",
+            lambda: unavailable(cxx_error or cargo_error)
+            if (cxx_error or cargo_error)
+            else check_abi_layout(cargo, cargo_env, cxx, temporary),
+        )
+        gate("package_inventory", lambda: check_package_inventory(temporary))
+        gate(
             "bridge_geometry",
             lambda: unavailable(cxx_error) if cxx_error else check_bridge_geometry(cxx, temporary),
         )
 
+    gate(
+        "build_pins",
+        lambda: unavailable(cargo_error) if cargo_error else check_build_pins(cargo),
+    )
     gate("balance_model", check_balance_model)
     gate("owner_data_tool", check_owner_data_tool)
     gate("swarm_sandbox", check_swarm_sandbox)

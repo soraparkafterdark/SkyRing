@@ -1,0 +1,180 @@
+{
+  "layout": {
+    "enums": {
+      "ErAction": {
+        "size": 4,
+        "values": {
+          "backstep": 3,
+          "backstepattack": 12,
+          "crouchattack": 13,
+          "crouchroll": 2,
+          "guardbreak": 18,
+          "guardcounter": 15,
+          "guardhit": 17,
+          "heavyattack": 9,
+          "heavycharge": 8,
+          "hurt": 19,
+          "jump": 5,
+          "jumpattackland": 14,
+          "land": 6,
+          "leftattack": 16,
+          "lightattack": 7,
+          "none": 0,
+          "roll": 1,
+          "rollattack": 11,
+          "runattack": 10,
+          "sprintstop": 4
+        }
+      },
+      "ErHitResult": {
+        "size": 4,
+        "values": {
+          "blocked": 3,
+          "dodged": 1,
+          "guardbroken": 4,
+          "hit": 5,
+          "ignored": 0,
+          "jumped": 2
+        }
+      },
+      "ErHurt": {
+        "size": 4,
+        "values": {
+          "knockdown": 3,
+          "large": 2,
+          "middle": 1,
+          "small": 0
+        }
+      },
+      "ErState": {
+        "size": 4,
+        "values": {
+          "action": 1,
+          "air": 2,
+          "dead": 3,
+          "ground": 0
+        }
+      }
+    },
+    "functions": {
+      "er_confirm_hit": {
+        "params": [
+          "ptr:ErCombat"
+        ],
+        "returns": "unit"
+      },
+      "er_create": {
+        "params": [
+          "ErVec3"
+        ],
+        "returns": "ptr:ErCombat"
+      },
+      "er_destroy": {
+        "params": [
+          "ptr:ErCombat"
+        ],
+        "returns": "unit"
+      },
+      "er_receive_hit": {
+        "params": [
+          "ptr:ErCombat",
+          "ErVec3",
+          "u8",
+          "ErHurt"
+        ],
+        "returns": "ErHitResult"
+      },
+      "er_update": {
+        "params": [
+          "ptr:ErCombat",
+          "f32",
+          "ptr_const:ErInput",
+          "ptr_const:ErWorld",
+          "ptr:ErOutput"
+        ],
+        "returns": "unit"
+      }
+    },
+    "structs": {
+      "ErButton": {
+        "align": 1,
+        "fields": {
+          "held": 0,
+          "pressed": 1,
+          "released": 2
+        },
+        "size": 3
+      },
+      "ErInput": {
+        "align": 4,
+        "fields": {
+          "camera_heading": 8,
+          "crouch": 27,
+          "dodge": 12,
+          "guard": 24,
+          "heavy": 21,
+          "jump": 15,
+          "light": 18,
+          "lock": 29,
+          "move_x": 0,
+          "move_y": 4,
+          "two_hand_left": 31,
+          "two_hand_right": 30,
+          "walk": 28
+        },
+        "size": 32
+      },
+      "ErOutput": {
+        "align": 4,
+        "fields": {
+          "action": 20,
+          "action_dir": 60,
+          "action_frame": 52,
+          "action_kind": 56,
+          "action_serial": 64,
+          "airborne": 76,
+          "crouching": 73,
+          "damage_multiplier": 212,
+          "guarding": 74,
+          "heading": 12,
+          "hit_live": 84,
+          "hit_radius": 208,
+          "hit_stop": 220,
+          "interruptible": 77,
+          "invincible": 75,
+          "position": 0,
+          "speed": 68,
+          "sprinting": 72,
+          "stamina": 80,
+          "stance_multiplier": 216,
+          "state": 16,
+          "sweep_a": 88,
+          "sweep_b": 148
+        },
+        "size": 224
+      },
+      "ErVec3": {
+        "align": 4,
+        "fields": {
+          "x": 0,
+          "y": 4,
+          "z": 8
+        },
+        "size": 12
+      },
+      "ErWorld": {
+        "align": 4,
+        "fields": {
+          "ground_z": 12,
+          "has_target": 16,
+          "in_combat": 32,
+          "position": 0,
+          "target": 20
+        },
+        "size": 36
+      }
+    }
+  },
+  "revision": 1,
+  "schema_version": 1
+}

@@ -209,5 +209,121 @@ class EvidenceTests(unittest.TestCase):
         self.assertTrue(result["clean_commit_capture"])
 
 
+class ValidationTests(unittest.TestCase):
+    """Tests for the manifest validate function."""
+
+    def test_missing_git_commit_rejected(self) -> None:
+        manifest = {
+            "data_fingerprint": "a" * 64,
+            "profile": "local",
+            "checks": [{"name": "test", "status": "PASS"}],
+        }
+        errors = evidence.validate(manifest)
+        self.assertIn("missing required field: git_commit", errors)
+
+    def test_invalid_git_commit_rejected(self) -> None:
+        manifest = {
+            "git_commit": "not-a-valid-sha",
+            "data_fingerprint": "a" * 64,
+            "profile": "local",
+            "checks": [{"name": "test", "status": "PASS"}],
+        }
+        errors = evidence.validate(manifest)
+        self.assertTrue(any("git_commit must be a 40-character" in e for e in errors))
+
+    def test_mismatched_data_fingerprint_rejected(self) -> None:
+        # Invalid hex (contains 'g' which is not valid hex) - should be rejected
+        manifest = {
+            "git_commit": "a" * 40,
+            "data_fingerprint": "g" * 64,  # 'g' is not valid hex
+            "profile": "local",
+            "checks": [{"name": "test", "status": "PASS"}],
+        }
+        errors = evidence.validate(manifest)
+        self.assertTrue(errors)  # Should be rejected due to invalid hex
+
+    def test_invalid_data_fingerprint_format_rejected(self) -> None:
+        manifest = {
+            "git_commit": "a" * 40,
+            "data_fingerprint": "not-valid-hex",
+            "profile": "local",
+            "checks": [{"name": "test", "status": "PASS"}],
+        }
+        errors = evidence.validate(manifest)
+        self.assertTrue(any("data_fingerprint must be a 64-character" in e for e in errors))
+
+    def test_invalid_profile_rejected(self) -> None:
+        manifest = {
+            "git_commit": "a" * 40,
+            "data_fingerprint": "a" * 64,
+            "profile": "invalid-profile",
+            "checks": [{"name": "test", "status": "PASS"}],
+        }
+        errors = evidence.validate(manifest)
+        self.assertTrue(any("invalid profile" in e for e in errors))
+
+    def test_missing_checks_array_rejected(self) -> None:
+        manifest = {
+            "git_commit": "a" * 40,
+            "data_fingerprint": "a" * 64,
+            "profile": "local",
+        }
+        errors = evidence.validate(manifest)
+        self.assertIn("missing required field: checks", errors)
+
+    def test_checks_not_array_rejected(self) -> None:
+        manifest = {
+            "git_commit": "a" * 40,
+            "data_fingerprint": "a" * 64,
+            "profile": "local",
+            "checks": "not-an-array",
+        }
+        errors = evidence.validate(manifest)
+        self.assertTrue(any("checks must be an array" in e for e in errors))
+
+    def test_checks_missing_name_or_status_rejected(self) -> None:
+        manifest = {
+            "git_commit": "a" * 40,
+            "data_fingerprint": "a" * 64,
+            "profile": "local",
+            "checks": [{"name": "test"}],
+        }
+        errors = evidence.validate(manifest)
+        self.assertTrue(any("checks[0] missing required" in e for e in errors))
+
+    def test_valid_local_manifest_accepted(self) -> None:
+        manifest = {
+            "git_commit": "a" * 40,
+            "data_fingerprint": "a" * 64,
+            "profile": "local",
+            "checks": [
+                {"name": "test1", "status": "PASS"},
+                {"name": "test2", "status": "FAIL"},
+            ],
+        }
+        errors = evidence.validate(manifest)
+        self.assertEqual(errors, [])
+
+    def test_valid_source_manifest_accepted(self) -> None:
+        manifest = {
+            "git_commit": "a" * 40,
+            "data_fingerprint": "a" * 64,
+            "profile": "source",
+            "checks": [{"name": "test", "status": "PASS"}],
+        }
+        errors = evidence.validate(manifest)
+        self.assertEqual(errors, [])
+
+    def test_valid_release_manifest_accepted(self) -> None:
+        manifest = {
+            "git_commit": "a" * 40,
+            "data_fingerprint": "a" * 64,
+            "profile": "release",
+            "checks": [{"name": "test", "status": "PASS"}],
+        }
+        errors = evidence.validate(manifest)
+        self.assertEqual(errors, [])
+
+
 if __name__ == "__main__":
     unittest.main()

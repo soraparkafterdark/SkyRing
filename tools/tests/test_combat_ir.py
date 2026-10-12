@@ -6,6 +6,7 @@ Tests for combat_ir.py
 from __future__ import annotations
 
 import json
+import math
 import sys
 import tempfile
 import unittest
@@ -150,6 +151,98 @@ class CombatIRTests(unittest.TestCase):
                             f"Expected output to mention absolute damage, got stdout: {result.stdout}, stderr: {result.stderr}")
         finally:
             Path(invalid_path).unlink(missing_ok=True)
+
+    def test_elements_exceed_one(self) -> None:
+        # individual share > 1.0
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["elements"] = {"fire": 1.5}
+        errors = combat_ir.validate(doc)
+        self.assertTrue(any("exceed 1.0" in e for e in errors),
+                        f"Expected error for share > 1.0, got: {errors}")
+
+    def test_elements_negative_rejected(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["elements"] = {"fire": -0.3}
+        errors = combat_ir.validate(doc)
+        self.assertTrue(any("non-negative" in e or "negative" in e for e in errors),
+                        f"Expected error for negative share, got: {errors}")
+
+    def test_elements_total_over_one(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["elements"] = {"fire": 0.6, "lightning": 0.6}
+        errors = combat_ir.validate(doc)
+        self.assertTrue(any("sum" in e.lower() and "1.0" in e for e in errors),
+                        f"Expected error for total > 1.0, got: {errors}")
+
+    def test_elements_sum_exactly_one_accepted(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["elements"] = {"fire": 0.5, "lightning": 0.5}
+        errors = combat_ir.validate(doc)
+        self.assertEqual([e for e in errors if "elements" in e], [],
+                         f"Expected no element errors for valid profile, got: {errors}")
+
+    def test_elements_missing_treated_as_empty(self) -> None:
+        doc = json.loads(json.dumps(self.valid_doc))
+        # ensure no elements key on any action
+        for action in doc["actions"]:
+            action.pop("elements", None)
+        errors = combat_ir.validate(doc)
+        self.assertEqual([e for e in errors if "elements" in e], [],
+                         f"Expected no element errors for missing elements, got: {errors}")
+
+    def test_non_dict_action_rejected(self) -> None:
+        # Regression test: non-dict action should return a clean error, not crash
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"] = ["not-a-dict", 123, None, [1, 2, 3]]
+        errors = combat_ir.validate(doc)
+        # Should return errors for each non-dict action
+        self.assertTrue(len(errors) >= 4, f"Expected at least 4 errors, got: {errors}")
+        for i in range(4):
+            self.assertTrue(any(f"actions[{i}] must be an object" in e for e in errors),
+                            f"Expected error for actions[{i}], got: {errors}")
+
+    def test_translate_nan_motion_value_clamped_to_default(self) -> None:
+        # (a) NaN motion_value is clamped to the envelope default.
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["kind"] = "Light1"
+        errors = combat_ir.validate(doc)
+        self.assertEqual(errors, [], f"Expected valid doc, got: {errors}")
+        result = combat_ir.translate("Light1", float("nan"))
+        self.assertAlmostEqual(result["damage_multiplier"], 1.00, places=6)
+        self.assertTrue(math.isnan(result["motion_value_in"]))
+
+    def test_translate_negative_motion_value_clamped_to_min(self) -> None:
+        # (b) negative motion_value is clamped to the envelope min.
+        result = combat_ir.translate("Heavy1", -5.0)
+        self.assertAlmostEqual(result["damage_multiplier"], 1.35, places=6)
+        self.assertEqual(result["motion_value_in"], -5.0)
+
+    def test_translate_infinity_motion_value_clamped_to_max(self) -> None:
+        # (c) INFINITY motion_value is clamped to the envelope max.
+        result = combat_ir.translate("Heavy1", float("inf"))
+        self.assertAlmostEqual(result["damage_multiplier"], 1.85, places=6)
+        self.assertEqual(result["motion_value_in"], float("inf"))
+
+    def test_translate_zero_motion_value_uses_default(self) -> None:
+        # (d) motion_value=0.0 uses the envelope default (not the min).
+        result = combat_ir.translate("Light1", 0.0)
+        self.assertAlmostEqual(result["damage_multiplier"], 1.00, places=6)
+        self.assertEqual(result["motion_value_in"], 0.0)
+
+    def test_translate_light1_default_matches_envelope(self) -> None:
+        # Verify returned damage_multiplier matches envelope defaults used in
+        # the Rust core (balance.rs), e.g. Light1 default ~1.0. Each kind's
+        # result stays within its own envelope max (1.15 for the Light family).
+        envelope_max: Dict[str, float] = {
+            "Light1": 1.15, "Light2": 1.15, "Heavy1": 1.85,
+            "Heavy1Charge": 2.50, "PairedLight1": 0.90,
+        }
+        for kind in envelope_max:
+            mv = float("nan")
+            r = combat_ir.translate(kind, mv)
+            self.assertIsInstance(r["damage_multiplier"], float)
+            self.assertTrue(r["damage_multiplier"] > 0.0)
+            self.assertLessEqual(r["damage_multiplier"], envelope_max[kind])
 
 
 if __name__ == "__main__":

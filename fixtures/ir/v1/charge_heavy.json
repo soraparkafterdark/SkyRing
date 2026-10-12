@@ -1,0 +1,37 @@
+{
+  "ir_version": 1,
+  "provenance": {
+    "source": "synthetic",
+    "generator": "Skytest",
+    "data_fingerprint": null
+  },
+  "units": {
+    "time": "s",
+    "distance": "m",
+    "angle": "deg"
+  },
+  "actions": [
+    {
+      "id": "colossal_sword_charge",
+      "duration_s": 1.0,
+      "stamina_cost": 25,
+      "iframes_s": [],
+      "hit_windows_s": [
+        [0.60, 0.75]
+      ],
+      "cancel_windows_s": [
+        [0.75, 1.00]
+      ],
+      "root_motion_m": [
+        [0.0, 0.0, 0.0],
+        [0.4, 0.0, 0.0],
+        [0.6, 3.0, 0.0],
+        [1.0, 3.0, 0.0]
+      ],
+      "sweeps_m": [
+        [0.60, 1.5, 0.0, 0.0, 1.6, 0.0, 0.0],
+        [0.70, 1.6, 0.0, 0.0, 1.7, 0.0, 0.0]
+      ]
+    }
+  ]
+}
