@@ -8,11 +8,16 @@
 //! which action is playing and whether a swing is live.
 
 pub mod balance;
+pub mod cast;
 pub mod consequences;
 pub mod delivery;
 pub mod effects;
 pub mod hazards;
 pub mod ffi;
+pub mod magic;
+pub mod magic_trace;
+pub mod magic_world;
 pub mod posture;
 pub mod sim;
+pub mod spells;
 pub mod trace;

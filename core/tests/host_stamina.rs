@@ -190,6 +190,7 @@ fn a_guarded_hit_between_updates_is_reported_by_the_next_update() {
 }
 
 #[test]
+#[allow(unused_assignments)]
 fn a_negative_host_value_never_reports_negative_spending() {
     // Skyrim's stamina can be driven below zero by damage-over-time effects. The core treats
     // that as an empty pool: a guarded hit breaks the guard, and spends nothing.
