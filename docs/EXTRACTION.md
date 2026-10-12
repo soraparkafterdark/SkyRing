@@ -25,6 +25,10 @@ combat data. The extraction path is file I/O, decompression, binary parsing,
 and Rust/Python generation. A 64-bit Ryzen 5 ThinkCentre with integrated
 graphics is a suitable machine for this work.
 
+> **Skyrim on SteamOS.** The Skyrim SE/AE copy is on a SteamOS machine, not
+> Windows. Use `tools/skyrim_steamos.py` to inspect it; see `STEAMOS.md`. That
+> tool is separate from the Elden Ring dump below, which is unchanged.
+
 ## One-command owner-data tool
 
 Clone this repository on the Windows machine, open PowerShell in it, and run:
