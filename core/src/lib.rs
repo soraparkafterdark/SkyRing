@@ -17,4 +17,5 @@ pub mod magic_trace;
 pub mod magic_world;
 pub mod posture;
 pub mod sim;
+pub mod spells;
 pub mod trace;
