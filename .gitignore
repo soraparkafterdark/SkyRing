@@ -19,3 +19,8 @@ __pycache__/
 /skyring-owner-dump/
 /owner_data/
 *owner-data*.zip
+
+# Local agent-driver state: session transcripts, model-call receipts and its config.
+/.albatross/
+/.sessions/
+/agent.config.json
