@@ -19,6 +19,7 @@ proven, treat the projectile-spell path as provisional.
 | `core/src/magic.rs` | `Catalyst` (staff or ring: a relative `quality`, an `upgrade_level`, at most one `Passive`, a `cost_multiplier`), the gear axis `Base x f(skill) x (1 + upgrade)`, `SpellDefinition` with named validation errors, `SpellSnapshot` and its conversion to the shared `HitEvent`. |
 | `core/src/cast.rs` | `Caster`: a spell as a committed action (startup, cancel window, release, charge, hyperarmour, recovery, hand dedication, magicka read from the host and charged at the release frame). `ImpactLedger`: exactly-once correlation of a native impact to a release. |
 | `core/src/magic_world.rs` | `MagicWorld`: casters, releases in flight and per-actor consequence state in one deterministic world; buffs and debuffs through the ordinary modifier set; actor death, unload and form reuse. |
+| `core/src/magic_trace.rs` | `MagicRecorder` records every call that can change a `MagicWorld`; `MagicScript::replay` re-runs them on a fresh world; `canonical_event_bytes` is a versioned, field-exact byte form of the event log, so a runtime log and its headless replay compare as bytes. |
 | `tools/magic_ir.py`, `fixtures/ir/v1/magic_matrix.json` | Catalysts and spells as optional IR records, with the Charter's rules enforced at the boundary. |
 
 ## Rules the tests pin (each one is mutation-checked)
@@ -78,8 +79,9 @@ slot that powerstancing depends on.
   synthetic and say so.
 - **Cast timings from the source game**: the ones used are estimates. Agreement between this
   code and its own fixtures is not extraction validation.
-- **Trace and event-log recording for magic** (`MagicEvent` is deterministic and comparable,
-  but is not yet part of the canonical trace format).
+- **Persisting a magic session**: scripts and the event log replay in memory and the log has a
+  canonical byte form, but scripts carry spell definitions, which have no wire format until the
+  IR loader exists. `MagicEvent` is not yet part of the combat trace format.
 - **The seven-case proof under CrossOver**, the gravity/Alteration build, perspective parity
   for casting.
 - **Dragon tree, summoning, gravity sorceries, new spell content** (Charter phase 8).
