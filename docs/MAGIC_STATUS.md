@@ -55,6 +55,24 @@ proven, treat the projectile-spell path as provisional.
   form id; release ids stay unique across an actor's unload while projectiles fly.
 - The whole scripted fight is bit-for-bit deterministic.
 
+## How it was verified
+
+Host tests only (`cargo test --all-targets`, `python3 tools/verify.py --profile local`):
+`magic_core` 33, `magic_world` 17, `magic_trace` 8, `spell_matrix` 20, `magic_adversarial` 10
+(deterministic property tests, 2,000+ generated cases each, with coverage assertions), and 9 Python
+tests for the IR records. Every rule above was mutation-checked: a one-line bug is applied to a scratch
+copy of `core/` and the tests must fail (`python3 tools/mutate_magic.py . <test-target>`; a test in
+`tools/tests` fails if a mutant stops matching the source).
+
+That check earned its keep: the adversarial properties, written by the albatross agent, first
+"passed" while **6 of 8 deliberate bugs went undetected**, because their generators never built the
+situations they were about. They were rewritten until every mutant was caught. Treat any test of the
+magic core that has not failed on a deliberate bug as unproven.
+
+Two review findings from the same agent were correct and fixed: passives stack across the two
+catalysts (`docs/Magic overhaul.md`), and `ImpactLedger::register` hid why a release was untracked
+(`try_register` and a `ReleaseUntracked` event now say).
+
 ## Tuning inputs (placeholders, not extracted or Charter-fixed)
 
 The Charter fixes the shape of the gear axis, not its numbers. These bounds are conservative
