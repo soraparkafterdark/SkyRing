@@ -1,0 +1,28 @@
+{
+  "ir_version": 1,
+  "migration": {
+    "rule": "ir-v1-locked",
+    "description": "v1 is the only accepted schema version. A future v2 would declare a concrete, ordered set of field renames/removals and a migration tool before acceptance."
+  },
+  "provenance": {
+    "schema": "schemas/ir/v1.json",
+    "generator": "tools/combat_ir.py",
+    "source": "synthetic"
+  },
+  "units": {
+    "type": "object",
+    "description": "Combatant units described by symbolic identifiers only. No absolute source-game attributes, skill, level, perk, or moveset requirements are permitted.",
+    "additionalProperties": false,
+    "properties": {
+      "id": { "$ref": "#/$defs/unit_id" }
+    },
+    "required": ["id"]
+  },
+  "actions": {
+    "type": "array",
+    "description": "Action definitions. Each action is a timing and geometry commitment; no absolute damage or HP values. Stamina is a Skyrim-native resource tracked by the engine, never expressed as a fixed source-game constant.",
+    "items": { "$ref": "#/$defs/action" },
+    "minItems": 1
+  },
+  "additionalProperties": false
+}

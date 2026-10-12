@@ -1,0 +1,43 @@
+{
+  "ir_version": 1,
+  "provenance": {
+    "source": "synthetic",
+    "generator": "Skytest",
+    "data_fingerprint": null
+  },
+  "units": {
+    "time": "s",
+    "distance": "m",
+    "angle": "deg"
+  },
+  "actions": [
+    {
+      "id": "longbow_release",
+      "duration_s": 1.2,
+      "stamina_cost": 8,
+      "iframes_s": [],
+      "hit_windows_s": [],
+      "cancel_windows_s": [],
+      "root_motion_m": [
+        [0.0, 0.0, 0.0],
+        [1.2, 0.0, 0.0]
+      ],
+      "sweeps_m": [],
+      "ranged": {
+        "draw_windows_s": [
+          [0.0, 0.6]
+        ],
+        "release_windows_s": [
+          [0.6, 0.65]
+        ],
+        "cancel_windows_s": [
+          [0.3, 0.6]
+        ],
+        "recovery_windows_s": [
+          [0.65, 1.2]
+        ],
+        "projectile_profile": "longbow_iron_arrow"
+      }
+    }
+  ]
+}
