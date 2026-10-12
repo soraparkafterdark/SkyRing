@@ -436,6 +436,22 @@ def create_bundle(
     if output.exists() and not force:
         raise OwnerDataError(f"bundle already exists; pass --force to replace it: {output}")
     payload = source_payload(source_dir, include_sounds) + generated_payload(upstream, include_sounds)
+    # First, check that all bundle inputs are present and not symlinks.
+    for source, archive_name in payload:
+        if not source.is_file():
+            raise OwnerDataError(f"bundle input is missing: {source}")
+        if source.is_symlink():
+            raise OwnerDataError(f"bundle inputs may not be symbolic links: {source}")
+    # Then, validate the action list in extracted.rs.
+    for source, archive_name in payload:
+        if archive_name == "generated/src/sim/extracted.rs":
+            content = source.read_text(encoding="utf-8")
+            try:
+                actions = json.loads(content)
+            except json.JSONDecodeError as e:
+                raise OwnerDataError(f"failed to parse extracted.rs as JSON: {e}. File contents: {content!r}")
+            validate_action_list(actions)
+            break
     names = [name for _, name in payload]
     if len(names) != len(set(names)):
         raise OwnerDataError("internal error: duplicate bundle member")
@@ -523,6 +539,14 @@ def import_bundle(bundle_path: Path, repo: Path, force: bool) -> Path:
                 destination = private_root.joinpath(*member.parts)
             elif name == "generated/src/sim/extracted.rs":
                 destination = action_table
+                # Validate the action list before writing
+                with bundle.open(name) as f:
+                    content = f.read().decode("utf-8")
+                try:
+                    actions = json.loads(content)
+                except json.JSONDecodeError as e:
+                    raise OwnerDataError(f"failed to parse extracted.rs as JSON: {e}")
+                validate_action_list(actions)
             else:
                 destination = private_root.joinpath(*member.parts)
             copy_zip_member(bundle, name, destination)

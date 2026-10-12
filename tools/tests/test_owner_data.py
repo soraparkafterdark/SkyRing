@@ -58,7 +58,12 @@ class OwnerDataTests(unittest.TestCase):
         (source / "oo2core_6_win64.dll").write_bytes(b"owner oodle")
         for name in owner_data.SOUND_BANKS:
             (source / name).write_bytes(f"sound:{name}".encode())
-        (upstream / "src" / "sim" / "extracted.rs").write_text("// extracted\n", encoding="utf-8")
+        # Valid action list JSON (non-empty)
+        valid_actions = [
+            {"id": 1, "kind": "attack", "total": 10, "stamina_cost": 5, "hit_windows": [[2, 4], [6, 8]]},
+            {"id": "special", "kind": "skill", "total": 20, "stamina_cost": 0, "hit_windows": [[5, 5]]},
+        ]
+        (upstream / "src" / "sim" / "extracted.rs").write_text(json.dumps(valid_actions), encoding="utf-8")
         (upstream / "assets" / "player_anims.bin").write_bytes(b"animations")
         (upstream / "assets" / "player_sounds.bin").write_bytes(b"player sounds")
         (upstream / "assets" / "sounds" / "footstep.wav").write_bytes(b"footstep")
@@ -80,9 +85,11 @@ class OwnerDataTests(unittest.TestCase):
             (repo / "verification").mkdir()
             (repo / "verification" / "contract.json").write_text("{}\n", encoding="utf-8")
             private_root = owner_data.import_bundle(bundle, repo, False)
+            expected_actions = [{"id": 1, "kind": "attack", "total": 10, "stamina_cost": 5, "hit_windows": [[2, 4], [6, 8]]}, {"id": "special", "kind": "skill", "total": 20, "stamina_cost": 0, "hit_windows": [[5, 5]]}
+]
             self.assertEqual(
                 (repo / "core" / "src" / "sim" / "extracted.rs").read_text(encoding="utf-8"),
-                "// extracted\n",
+                json.dumps(expected_actions),
             )
             self.assertTrue((private_root / "source" / "chr" / owner_data.ANIMATION_BINDERS[0]).is_file())
             self.assertTrue((private_root / "generated" / "assets" / "player_anims.bin").is_file())
@@ -337,5 +344,61 @@ class OwnerDataTests(unittest.TestCase):
                 owner_data.validate_nuxe_output(source, False)
             self.assertIn(missing, str(context.exception))
 
+    def test_action_list_bundle_rejects_and_clears(self) -> None:
+        # Part A: create_bundle with invalid action list
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, upstream, game = self.make_fixture(root)
+            # Write an invalid action list (negative stamina_cost)
+            invalid_actions = [{"id": 1, "kind": "attack", "total": 5, "stamina_cost": -1, "hit_windows": [[1, 2]]}]
+            (upstream / "src" / "sim" / "extracted.rs").write_text(json.dumps(invalid_actions), encoding="utf-8")
+            bundle = root / "owner-data.zip"
+            with self.assertRaises(owner_data.OwnerDataError):
+                owner_data.create_bundle(source, upstream, game, False, bundle, False)
+            self.assertFalse(bundle.exists(), "Bundle file should not be created when action validation fails")
+
+        # Part B: import_bundle with malformed action list
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, upstream, game = self.make_fixture(root)
+            # First, create a valid bundle
+            valid_bundle = root / "valid.zip"
+            owner_data.create_bundle(source, upstream, game, False, valid_bundle, False)
+            # Now, corrupt the bundle's extracted.rs with invalid actions
+            # We'll read the bundle, replace the extracted.rs, and write a new bundle
+            import zipfile
+            with zipfile.ZipFile(valid_bundle, 'r') as zip_in:
+                bundle_data = []
+                for item in zip_in.infolist():
+                    data = zip_in.read(item.filename)
+                    if item.filename == "generated/src/sim/extracted.rs":
+                        # Replace with invalid action list
+                        invalid_actions = [{"id": 1, "kind": "attack", "total": 5, "stamina_cost": -1, "hit_windows": [[1, 2]]}]
+                        data = json.dumps(invalid_actions).encode('utf-8')
+                    bundle_data.append((item.filename, data))
+            # Write the corrupted bundle
+            corrupted_bundle = root / "corrupted.zip"
+            with zipfile.ZipFile(corrupted_bundle, 'w') as zip_out:
+                for filename, data in bundle_data:
+                    zip_out.writestr(filename, data)
+
+            # Now try to import the corrupted bundle into a fresh repo
+            repo = root / "repo"
+            (repo / "core" / "src" / "sim").mkdir(parents=True)
+            (repo / "verification").mkdir()
+            (repo / "verification" / "contract.json").write_text("{}\n", encoding="utf-8")
+
+            with self.assertRaises(owner_data.OwnerDataError):
+                owner_data.import_bundle(corrupted_bundle, repo, False)
+
+            # Check for no residue
+            fingerprint = owner_data.sha256(corrupted_bundle)[:16]
+            private_root = repo / "owner_data" / fingerprint
+            self.assertFalse(private_root.is_dir(),
+                             f"No owner data directory should be created for bundle {corrupted_bundle}")
+            self.assertFalse((repo / "owner_data" / "current.json").is_file(),
+                             "No current.json should be created")
+            self.assertFalse((repo / "core" / "src" / "sim" / "extracted.rs").is_file(),
+                             "No extracted.rs should be created in the core")
 if __name__ == "__main__":
     unittest.main()
