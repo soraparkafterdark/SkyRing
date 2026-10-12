@@ -164,4 +164,3 @@ class DefaultBaseTests(unittest.TestCase):
         with mock.patch.object(swarm_sandbox.shutil, "which", return_value="/usr/bin/cargo"):
             self.assertIsNone(swarm_sandbox.command_environment(["/toolchain/bin/cargo", "test"]))
         self.assertIsNone(swarm_sandbox.command_environment(["python3", "x.py"]))
-
