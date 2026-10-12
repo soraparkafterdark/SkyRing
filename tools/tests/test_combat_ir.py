@@ -244,6 +244,70 @@ class CombatIRTests(unittest.TestCase):
             self.assertTrue(r["damage_multiplier"] > 0.0)
             self.assertLessEqual(r["damage_multiplier"], envelope_max[kind])
 
+    # --- New action-field completeness and type validation tests ---
+
+    def test_action_missing_duration_s_rejected(self) -> None:
+        # (a) action missing duration_s rejected — error message contains 'duration_s'
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0].pop("duration_s", None)
+        errors = combat_ir.validate(doc)
+        self.assertTrue(
+            any("duration_s" in e for e in errors),
+            f"Expected error mentioning duration_s, got: {errors}",
+        )
+
+    def test_action_duration_s_zero_or_negative_rejected(self) -> None:
+        # (b) action with duration_s 0 or negative rejected — message contains 'duration_s must be a number > 0'
+        for bad_value in [0, -0.1, -1.0]:
+            doc = json.loads(json.dumps(self.valid_doc))
+            doc["actions"][0]["duration_s"] = bad_value
+            errors = combat_ir.validate(doc)
+            self.assertTrue(
+                any("duration_s must be a number > 0" in e for e in errors),
+                f"Expected error for duration_s={bad_value}, got: {errors}",
+            )
+
+    def test_action_negative_stamina_cost_rejected(self) -> None:
+        # (c) action with negative stamina_cost rejected — message contains 'stamina_cost'
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["stamina_cost"] = -5
+        errors = combat_ir.validate(doc)
+        self.assertTrue(
+            any("stamina_cost" in e and ">= 0" in e for e in errors),
+            f"Expected error mentioning stamina_cost >= 0, got: {errors}",
+        )
+
+    def test_action_hit_windows_s_non_list_rejected(self) -> None:
+        # (d) action with hit_windows_s set to a non-list (e.g. a string) rejected — message contains 'hit_windows_s must be a list'
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["hit_windows_s"] = "not-a-list"
+        errors = combat_ir.validate(doc)
+        self.assertTrue(
+            any("hit_windows_s must be a list" in e for e in errors),
+            f"Expected error for non-list hit_windows_s, got: {errors}",
+        )
+
+    def test_action_hit_windows_s_entries_not_two_number_lists_rejected(self) -> None:
+        # (e) action with hit_windows_s entries that are not two-number lists rejected — message contains 'must be a list of two numbers'
+        doc = json.loads(json.dumps(self.valid_doc))
+        doc["actions"][0]["hit_windows_s"] = [[0.1], [0.2, 0.3, 0.4], "bad", 123]
+        errors = combat_ir.validate(doc)
+        self.assertTrue(
+            any("must be a list of two numbers" in e for e in errors),
+            f"Expected error for invalid hit window entries, got: {errors}",
+        )
+
+    def test_action_hit_window_start_negative_or_end_beyond_duration_rejected(self) -> None:
+        # (f) action with a hit window whose start is negative or end beyond duration_s rejected — message contains 'must satisfy 0 <= start < end <= duration_s'
+        doc = json.loads(json.dumps(self.valid_doc))
+        # duration_s is 0.5 for first action
+        doc["actions"][0]["hit_windows_s"] = [[-0.1, 0.2], [0.1, 0.6]]
+        errors = combat_ir.validate(doc)
+        self.assertTrue(
+            any("must satisfy 0 <= start < end <= duration_s" in e for e in errors),
+            f"Expected error for invalid window bounds, got: {errors}",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

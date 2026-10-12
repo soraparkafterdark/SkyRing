@@ -178,6 +178,7 @@ def validate(doc: Dict[str, Any]) -> List[str]:
             duration = action.get("duration_s")
             if not isinstance(duration, (int, float)) or duration <= 0:
                 errors.append(f'actions[{i}].duration_s must be a number > 0')
+                duration = None  # Mark as invalid so window validation can skip bounds check
 
             # stamina_cost
             stamina = action.get("stamina_cost")
@@ -197,7 +198,7 @@ def validate(doc: Dict[str, Any]) -> List[str]:
                     if not (isinstance(start, (int, float)) and isinstance(end, (int, float))):
                         errors.append(f'actions[{i}].{name}[{j}] start and end must be numbers')
                         continue
-                    if not (0 <= start < end <= duration):
+                    if duration is not None and not (0 <= start < end <= duration):
                         errors.append(
                             f'actions[{i}].{name}[{j}] must satisfy 0 <= start < end <= duration_s ({duration})'
                         )
@@ -228,7 +229,7 @@ def validate(doc: Dict[str, Any]) -> List[str]:
                     if not (isinstance(t_s, (int, float)) and isinstance(dx, (int, float)) and isinstance(dy, (int, float))):
                         errors.append(f'actions[{i}].root_motion_m[{k}] all elements must be numbers')
                         continue
-                    if not (0 <= t_s <= duration):
+                    if duration is not None and not (0 <= t_s <= duration):
                         errors.append(f'actions[{i}].root_motion_m[{k}] t_s must be within [0, duration_s]')
                     if t_s <= prev_time:
                         errors.append(f'actions[{i}].root_motion_m[{k}] t_s must be strictly increasing')
